@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SlamDunkChat</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>SlamDunkChat</h1>
+        <p>Current Time: {{ current_datetime }}</p>
+        <div id="chat-container">
+            <!-- Chat messages will be appended here -->
+        </div>
+        <div id="input-container">
+            <input type="text" id="message-input" placeholder="Ask about NBA games and players">
+            <button id="send-button">Ask <span>🏀</span></button>
+        </div>
+        <div id="bets-container">
+            <h4>Betting Suggestions</h4>
+            {% for bet in initial_bets %}
+            <div class="bet">
+                <p class="bet-game">{{ bet.game }}, {{ bet.date | format_date }}</p>
+                {% for team, odds in bet.moneyline.items() %}
+                <p class="bet-moneyline">{{ team }}: {{ odds }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            <div class="bets-footer">
+                <span class="bets-note">Note: The games data may be off by 12 hours.</span>
+                <a href="{{ betting_site_url }}" class="more-bets">More bets</a>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/script.js"></script>
+</body>
+</html>
