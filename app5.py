@@ -12,24 +12,18 @@ app = Flask(__name__)
 app.secret_key = 'nba-chat2-secret-key-2025'
 app.permanent_session_lifetime = timedelta(minutes=30)
 
-# Set up logging
-LOG_FILE = os.path.join(os.environ.get('TEMP', 'C:\\Temp'), 'nba_chat2_app5.log')
+# Configure logging for Render
+logger = logging.getLogger(__name__)
+LOG_FILE = 'nba_chat2_app5.log'  # Relative path, writes to /opt/render/project/src
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler()  # Console logging
+        logging.StreamHandler(),  # Console logging
+        logging.FileHandler(LOG_FILE, mode='a')  # File logging
     ]
 )
-try:
-    logging.getLogger().addHandler(logging.FileHandler(LOG_FILE, mode='a'))
-    logger = logging.getLogger(__name__)
-    logger.debug(f"Logging to file: {LOG_FILE}")
-except PermissionError as e:
-    logger = logging.getLogger(__name__)
-    logger.warning(f"Failed to open log file {LOG_FILE}: {str(e)}. Logging to console only.")
-
-logging.getLogger('werkzeug').setLevel(logging.DEBUG)
+logger.debug(f"Logging initialized to file: {LOG_FILE}")
 
 # Hardcode keys
 XAI_API_KEY = 'xai-lY6JXMlP8jvE3CAgqkn2EiRlMZ444mzFQS0JLKIv4p6ZcoGGxW2Mk6EIMs72dLXylw0Kg4MLyOHGDj6c'
