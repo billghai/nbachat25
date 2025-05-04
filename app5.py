@@ -1,3 +1,5 @@
+import logging
+import os
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, timedelta
 import json
@@ -5,8 +7,7 @@ import requests
 from fuzzywuzzy import process
 import re
 import pytz
-import logging
-import os
+import time
 
 app = Flask(__name__)
 app.secret_key = 'nba-chat2-secret-key-2025'
@@ -73,7 +74,7 @@ TEAM_NAME_MAPPING = {
     "pistons": "Detroit Pistons",
 }
 
-# Team ID to name mapping (retained for compatibility)
+# Team ID to name mapping
 TEAM_ID_TO_NAME = {
     1610612738: "Boston Celtics",
     1610612739: "Cleveland Cavaliers",
@@ -139,58 +140,131 @@ def normalize_team_name(query):
     logger.debug(f"No team match for query: {query}")
     return None
 
+# Fetch betting odds from Odds API
+def fetch_betting_odds(date_str):
+    try:
+        # Use PDT timezone for game dates
+        pdt = pytz.timezone('US/Pacific')
+        date = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=pdt)
+        timestamp = int(date.timestamp())
+        
+        url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
+        params = {
+            'apiKey': ODDS_API_KEY,
+            'regions': 'us',
+            'markets': 'h2h',
+            'date': timestamp
+        }
+        response = requests.get(url, params=params, timeout=10)
+        response.raise_for_status()
+        games = response.json()
+        
+        bets = []
+        for game in games:
+            home_team = game['home_team']
+            away_team = game['away_team']
+            commence_time = game.get('commence_time', '')[:10]
+            for bookmaker in game.get('bookmakers', []):
+                for market in bookmaker.get('markets', []):
+                    if market['key'] == 'h2h':
+                        for outcome in market['outcomes']:
+                            price = outcome['price']
+                            odds = f"+{int(price * 100)}" if price > 0 else f"{int(price * 100)}"
+                            bets.append({
+                                'game': f"{home_team} vs. {away_team}",
+                                'date': commence_time,
+                                'team': outcome['name'],
+                                'odds': odds
+                            })
+        logger.debug(f"Fetched {len(bets)} betting odds for {date_str}")
+        return bets
+    except Exception as e:
+        logger.error(f"Failed to fetch betting odds: {str(e)}")
+        return []
+
 # Store initial bets globally
 INITIAL_BETS = []
 
 @app.route("/")
 def index():
     global INITIAL_BETS
-    current_datetime = datetime.now().strftime("%B %d, %Y, %I:%M %p")
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}")
-    all_odds = [
-        {"home_team": "Miami Heat", "away_team": "Cleveland Cavaliers", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 200}, {"price": -220}]}]}]},
-        {"home_team": "Memphis Grizzlies", "away_team": "Oklahoma City Thunder", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 250}, {"price": -300}]}]}]},
-        {"home_team": "LA Clippers", "away_team": "Denver Nuggets", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 160}, {"price": -180}]}]}]},
-        {"home_team": "Golden State Warriors", "away_team": "Houston Rockets", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": -170}, {"price": 146}]}]}]},
-    ]
-    filtered_odds = [game for game in all_odds if game["commence_time"] >= current_date]
-    logger.debug(f"Filtered odds: {json.dumps(filtered_odds, indent=2)}")
-    odds_with_min_price = []
-    for game in filtered_odds:
-        try:
-            min_price = min([outcome["price"] for bookmaker in game.get("bookmakers", []) for market in bookmaker.get("markets", []) for outcome in market.get("outcomes", []) if outcome["price"] < 0], default=0)
-            odds_with_min_price.append((game, min_price))
-        except Exception as e:
-            logger.debug(f"Error processing odds for game {game.get('home_team', 'unknown')} vs {game.get('away_team', 'unknown')}: {str(e)}")
-            continue
-    odds_with_min_price.sort(key=lambda x: x[1], reverse=True)
-    odds = [game for game, _ in odds_with_min_price[:4]]
-    logger.debug(f"Sorted odds: {json.dumps(odds, indent=2)}")
-    INITIAL_BETS = []
-    for game in odds:
-        try:
-            bet_info = {
-                "game": f"{game['home_team']} vs. {game['away_team']}",
-                "date": game.get("commence_time", "")[:10] if game.get("commence_time") else "N/A",
-                "moneyline": {},
-                "teams": [game["home_team"], game["away_team"]]
-            }
-            moneyline = {}
-            for bookmaker in game.get("bookmakers", []):
-                for market in bookmaker.get("markets", []):
-                    if market["key"] == "h2h" and len(market["outcomes"]) >= 2:
-                        logger.debug(f"Parsing moneyline for {game['home_team']}: {market['outcomes']}")
-                        moneyline[game["home_team"]] = market["outcomes"][0]["price"]
-                        moneyline[game["away_team"]] = market["outcomes"][1]["price"]
-            bet_info["moneyline"] = moneyline or {}
-            if bet_info["moneyline"]:
+    try:
+        # Use PDT for current time
+        pdt = pytz.timezone('US/Pacific')
+        current_datetime = datetime.now(pdt).strftime("%B %d, %Y, %I:%M %p %Z")
+        current_date = datetime.now(pdt).strftime("%Y-%m-%d")
+        logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}")
+
+        # Fetch betting odds for current date
+        all_odds = fetch_betting_odds(current_date)
+        if not all_odds:
+            # Fallback odds if API fails
+            all_odds = [
+                {
+                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                    'date': '2025-05-04',
+                    'team': 'Cleveland Cavaliers',
+                    'odds': '-150'
+                },
+                {
+                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                    'date': '2025-05-04',
+                    'team': 'Indiana Pacers',
+                    'odds': '+130'
+                },
+                {
+                    'game': 'Houston Rockets vs. Golden State Warriors',
+                    'date': '2025-05-04',
+                    'team': 'Houston Rockets',
+                    'odds': '+200'
+                },
+                {
+                    'game': 'Houston Rockets vs. Golden State Warriors',
+                    'date': '2025-05-04',
+                    'team': 'Golden State Warriors',
+                    'odds': '-240'
+                }
+            ]
+        filtered_odds = [game for game in all_odds if game['date'] >= current_date]
+        logger.debug(f"Filtered odds: {json.dumps(filtered_odds, indent=2)}")
+
+        # Sort odds by game and team
+        odds_with_min_price = []
+        for game in filtered_odds:
+            try:
+                price = float(game['odds'].replace('+', '')) if '+' in game['odds'] else float(game['odds'])
+                odds_with_min_price.append((game, price))
+            except Exception as e:
+                logger.debug(f"Error processing odds for game {game.get('game', 'unknown')}: {str(e)}")
+                continue
+        odds_with_min_price.sort(key=lambda x: x[1], reverse=True)
+        odds = [game for game, _ in odds_with_min_price[:4]]
+        logger.debug(f"Sorted odds: {json.dumps(odds, indent=2)}")
+
+        INITIAL_BETS = []
+        for game in odds:
+            try:
+                bet_info = {
+                    "game": game['game'],
+                    "date": game.get('date', 'N/A'),
+                    "moneyline": {game['team']: game['odds']},
+                    "teams": game['game'].split(' vs. ')
+                }
                 INITIAL_BETS.append(bet_info)
-        except Exception as e:
-            logger.debug(f"Skipping invalid game data: {str(e)}, game: {game}")
-            continue
-    logger.debug(f"Initial bets: {json.dumps(INITIAL_BETS, indent=2)}")
-    return render_template("index.html", initial_bets=INITIAL_BETS, current_datetime=current_datetime, betting_site_url=BETTING_SITE_URL)
+            except Exception as e:
+                logger.debug(f"Skipping invalid game data: {str(e)}, game: {game}")
+                continue
+        logger.debug(f"Initial bets: {json.dumps(INITIAL_BETS, indent=2)}")
+
+        return render_template(
+            "index.html",
+            initial_bets=INITIAL_BETS,
+            current_datetime=current_datetime,
+            betting_site_url=BETTING_SITE_URL
+        )
+    except Exception as e:
+        logger.error(f"Error rendering index: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
@@ -242,12 +316,12 @@ def deep_search_query(query):
         "Authorization": f"Bearer {XAI_API_KEY}",
         "Content-Type": "application/json"
     }
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
     prompt = (
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date}. For past week queries, check games from {current_date} back 7 days; exclude future dates. "
         f"For future games, verify dates and times with NBA.com or ESPN in PDT, ensuring no games are missed due to playoff status. "
-        f"For today's games (April 30, 2025), include: Lakers vs. Timberwolves (7:00 PM PDT), Warriors vs. Rockets (ended, Warriors win). "
+        f"For today's games (May 4, 2025), include: Cavaliers vs. Pacers (Game 1, 7:00 PM PDT), Rockets vs. Warriors (Game 7, 8:30 PM PDT). "
         f"For series status, provide current playoff standings (e.g., 'Team A leads 3-1') for the 2024-25 NBA playoffs. "
         f"Known series: Lakers vs. Timberwolves, Game 5 on 2025-04-30 at 7:00 PM PDT (Timberwolves lead 3-1), Game 6 on 2025-05-02 at 10:00 AM PDT (if necessary); "
         f"Heat vs. Cavaliers, ended 2025-04-28 (Cavaliers win 4-0); Clippers vs. Nuggets, Game 5 on 2025-04-29 (Nuggets lead 3-2); "
@@ -283,7 +357,7 @@ def deep_search_query(query):
 
 def search_nba_data(query, user_teams, query_timestamp):
     logger.debug(f"user_teams: {user_teams}")
-    current_date = datetime.now().strftime("%Y-%m-%d")
+    current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
     current_dt = datetime.strptime(current_date, "%Y-%m-%d")
 
     # Handle historical queries
@@ -300,22 +374,29 @@ def search_nba_data(query, user_teams, query_timestamp):
         team = user_teams[0]
         if "next" in query.lower():
             if team == "Los Angeles Lakers":
-                target_date = "2025-05-02"
-                series_key = f"Minnesota Timberwolves vs Los Angeles Lakers {target_date}"
+                target_date = "2025-05-06"  # Adjusted for playoff context
+                series_key = f"Los Angeles Lakers vs Minnesota Timberwolves 2025-05-04"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Lakers: {series_key}")
-                    response = f"Los Angeles Lakers play Minnesota Timberwolves on 2025-05-02, 10:00 AM PDT. Series: {KNOWN_SERIES[series_key]}."
+                    response = f"Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: {KNOWN_SERIES[series_key]}."
                     return response, False
             if team == "New York Knicks":
-                target_date = "2025-05-01"
-                series_key = f"New York Knicks vs Detroit Pistons {target_date}"
+                target_date = "2025-05-03"  # Assuming series continues
+                series_key = f"New York Knicks vs Detroit Pistons 2025-05-01"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Knicks: {series_key}")
-                    response = f"New York Knicks play Detroit Pistons on 2025-05-01, 4:30 PM PDT. Series: {KNOWN_SERIES[series_key]}."
+                    response = f"New York Knicks may play Detroit Pistons on 2025-05-03, TBD (Game 7, if necessary). Series: {KNOWN_SERIES[series_key]}."
+                    return response, False
+            if team == "Boston Celtics":
+                target_date = "2025-05-05"  # Assuming series continues
+                series_key = f"Orlando Magic vs Boston Celtics 2025-04-29"
+                if series_key in KNOWN_SERIES:
+                    logger.debug(f"Using known series for Celtics: {series_key}")
+                    response = f"Boston Celtics may play Orlando Magic on 2025-05-05, TBD (Game 6, if necessary). Series: {KNOWN_SERIES[series_key]}."
                     return response, False
         if "last" in query.lower():
             for series_key, status in KNOWN_SERIES.items():
-                if team in series_key and "2025-04" in series_key:  # Recent games
+                if team in series_key and "2025-04" in series_key:
                     logger.debug(f"Using known series for {team}: {series_key}")
                     if team == "Miami Heat":
                         response = f"Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: {status}."
@@ -341,12 +422,12 @@ def search_nba_data(query, user_teams, query_timestamp):
     logger.debug(f"Routing query to DeepSearch: {query}")
     grok_response, is_grok_search = deep_search_query(query)
 
-    # Validate DeepSearch response for Lakers, Heat, Clippers, Knicks, Celtics
+    # Validate DeepSearch response
     if user_teams and team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics"]:
         if "eliminated" in grok_response.lower() or "no future games" in grok_response.lower():
             logger.warning(f"DeepSearch incorrectly reported {team} eliminated: {grok_response}")
             if team == "Los Angeles Lakers" and "next" in query.lower():
-                response = "Los Angeles Lakers play Minnesota Timberwolves on 2025-05-02, 10:00 AM PDT. Series: Timberwolves lead 3-1."
+                response = "Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: Timberwolves lead 3-1."
                 return response, False
             if team == "Miami Heat" and "last" in query.lower():
                 response = "Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: Cavaliers win 4-0."
@@ -355,7 +436,7 @@ def search_nba_data(query, user_teams, query_timestamp):
                 response = "LA Clippers lost to Denver Nuggets on 2025-04-29, score 115-131. Series: Nuggets lead 3-2."
                 return response, False
             if team == "New York Knicks" and "next" in query.lower():
-                response = "New York Knicks play Detroit Pistons on 2025-05-01, 4:30 PM PDT. Series: Knicks lead 3-2."
+                response = "New York Knicks may play Detroit Pistons on 2025-05-03, TBD (Game 7, if necessary). Series: Knicks lead 3-2."
                 return response, False
             if team == "Boston Celtics" and "last" in query.lower():
                 response = "Boston Celtics won vs. Orlando Magic on 2025-04-29, score 120-89. Series: Celtics lead 3-2."
@@ -365,25 +446,20 @@ def search_nba_data(query, user_teams, query_timestamp):
 
 def get_game_odds(query):
     normalized_teams = [normalize_team_name(query) for query in query.split() if normalize_team_name(query)]
-    current_date = datetime.now().strftime("%Y-%m-%d")
-    all_odds = [
-        {"home_team": "Miami Heat", "away_team": "Cleveland Cavaliers", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 200}, {"price": -220}]}]}]},
-        {"home_team": "Memphis Grizzlies", "away_team": "Oklahoma City Thunder", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 250}, {"price": -300}]}]}]},
-        {"home_team": "LA Clippers", "away_team": "Denver Nuggets", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": 160}, {"price": -180}]}]}]},
-        {"home_team": "Golden State Warriors", "away_team": "Houston Rockets", "commence_time": "2025-04-26", "bookmakers": [{"markets": [{"key": "h2h", "outcomes": [{"price": -170}, {"price": 146}]}]}]},
-    ]
+    current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
+    all_odds = fetch_betting_odds(current_date)
     logger.debug(f"Getting odds for query with teams: {normalized_teams}")
     if normalized_teams and any(word in query.lower() for word in ["game", "next", "last", "schedule", "playoffs"]):
-        filtered = [game for game in all_odds if any(team in [game["home_team"], game["away_team"]] for team in normalized_teams)]
+        filtered = [game for game in all_odds if any(team in game['game'] for team in normalized_teams)]
         if filtered:
             if "next" in query.lower():
-                filtered = [game for game in filtered if game["commence_time"] >= current_date]
+                filtered = [game for game in filtered if game['date'] >= current_date]
             elif "last" in query.lower():
-                filtered = [game for game in filtered if game["commence_time"] < current_date]
+                filtered = [game for game in filtered if game['date'] < current_date]
             logger.debug(f"Filtered odds for teams: {json.dumps(filtered, indent=2)}")
             return filtered[:3]
     if any(word in query.lower() for word in ["today", "tonight", "games", "playoffs"]):
-        filtered = [game for game in all_odds if game["commence_time"] == current_date]
+        filtered = [game for game in all_odds if game['date'] == current_date]
         if filtered:
             logger.debug(f"Filtered odds for today: {json.dumps(filtered, indent=2)}")
             return filtered[:3]
@@ -398,21 +474,12 @@ def get_bets(query, grok_response):
     for game in odds:
         try:
             bet_info = {
-                "game": f"{game['home_team']} vs. {game['away_team']}",
-                "date": game.get("commence_time", "")[:10] if game.get("commence_time") else "N/A",
-                "moneyline": {},
-                "teams": [game["home_team"], "away_team"]
+                "game": game['game'],
+                "date": game.get('date', 'N/A'),
+                "moneyline": {game['team']: game['odds']},
+                "teams": game['game'].split(' vs. ')
             }
-            moneyline = {}
-            for bookmaker in game.get("bookmakers", []):
-                for market in bookmaker.get("markets", []):
-                    if market["key"] == "h2h" and len(market["outcomes"]) >= 2:
-                        logger.debug(f"Parsing moneyline for {game['home_team']}: {market['outcomes']}")
-                        moneyline[game["home_team"]] = market["outcomes"][0]["price"]
-                        moneyline[game["away_team"]] = market["outcomes"][1]["price"]
-            bet_info["moneyline"] = moneyline or {}
-            if bet_info["moneyline"]:
-                bets.append(bet_info)
+            bets.append(bet_info)
         except Exception as e:
             logger.debug(f"Skipping invalid bet data: {str(e)}, game: {game}")
             continue
