@@ -1,3 +1,4 @@
+# Import required libraries for Flask app, HTTP requests, fuzzy matching, timezone handling, and logging
 import logging
 import os
 from flask import Flask, render_template, request, jsonify, session
@@ -9,31 +10,32 @@ import re
 import pytz
 import time
 
+# Initialize Flask app with session support
 app = Flask(__name__)
-app.secret_key = 'nba-chat2-secret-key-2025'
-app.permanent_session_lifetime = timedelta(minutes=30)
+app.secret_key = 'nba-chat2-secret-key-2025'  # Secret key for session encryption
+app.permanent_session_lifetime = timedelta(minutes=30)  # Session lasts 30 minutes
 
-# Configure logging for Render
-logger = logging.getLogger(__name__)
-LOG_FILE = 'nba_chat2_app5.log'  # Relative path, writes to /opt/render/project/src
+# Configure logging for Render environment
+logger = logging.getLogger(__name__)  # Logger for this module
+LOG_FILE = 'nba_chat2_app5.log'  # Relative path for log file in Render's /opt/render/project/src
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    level=logging.DEBUG,  # Log all debug and higher messages
+    format='%(asctime)s - %(levelname)s - %(message)s',  # Log format with timestamp, level, message
     handlers=[
-        logging.StreamHandler(),  # Console logging
-        logging.FileHandler(LOG_FILE, mode='a')  # File logging
+        logging.StreamHandler(),  # Log to console
+        logging.FileHandler(LOG_FILE, mode='a')  # Append to log file
     ]
 )
 logger.debug(f"Logging initialized to file: {LOG_FILE}")
 
-# Hardcode keys
+# Hardcode API keys (functional as per memory: May 5, 2025, 8:29 AM PDT)
 XAI_API_KEY = 'xai-lY6JXMlP8jvE3CAgqkn2EiRlMZ444mzFQS0JLKIv4p6ZcoGGxW2Mk6EIMs72dLXylw0Kg4MLyOHGDj6c'
 ODDS_API_KEY = '0f33deae4a7f69adbf864b9bbbb395c2'
 BETTING_SITE_URL = 'https://www.example.com/bets'
 logger.debug(f"Using XAI_API_KEY: {XAI_API_KEY[:10]}...")
 logger.debug(f"Using ODDS_API_KEY: {ODDS_API_KEY[:10]}...")
 
-# Team name mapping
+# Team name mapping for normalizing user queries (e.g., "lakers" -> "Los Angeles Lakers")
 TEAM_NAME_MAPPING = {
     "lakers": "Los Angeles Lakers",
     "lalakers": "Los Angeles Lakers",
@@ -73,7 +75,7 @@ TEAM_NAME_MAPPING = {
     "pistons": "Detroit Pistons",
 }
 
-# Team ID to name mapping
+# Team ID to name mapping for API compatibility
 TEAM_ID_TO_NAME = {
     1610612738: "Boston Celtics",
     1610612739: "Cleveland Cavaliers",
@@ -93,7 +95,7 @@ TEAM_ID_TO_NAME = {
     1610612765: "Detroit Pistons",
 }
 
-# Known series statuses for validation
+# Known series statuses for quick query responses (updated for May 4, 2025, web:9, web:22)
 KNOWN_SERIES = {
     "Los Angeles Lakers vs Minnesota Timberwolves 2025-04-30": "Timberwolves lead 3-1",
     "Minnesota Timberwolves vs Los Angeles Lakers 2025-05-02": "Timberwolves lead 3-1",
@@ -110,7 +112,7 @@ KNOWN_SERIES = {
     "Golden State Warriors vs Houston Rockets 2025-05-04": "Warriors lead 3-3"
 }
 
-# Define Jinja2 filter for date formatting
+# Jinja2 filter to format dates in templates (e.g., "2025-05-04" -> "May 04, 2025")
 def format_date(date_str):
     if not date_str or date_str == 'N/A':
         return 'N/A'
@@ -123,7 +125,7 @@ def format_date(date_str):
 
 app.jinja_env.filters['format_date'] = format_date
 
-# Normalize team names
+# Normalize team names using fuzzy matching (e.g., "laker" -> "Los Angeles Lakers")
 def normalize_team_name(query):
     if not query or not any(c.isalpha() for c in query):
         safe_query = query.encode('ascii', 'ignore').decode('ascii')
@@ -141,7 +143,7 @@ def normalize_team_name(query):
     logger.debug(f"No team match for query: {query}")
     return None
 
-# Fetch betting odds from Odds API
+# Fetch betting odds from Odds API for a specific date
 def fetch_betting_odds(date_str):
     try:
         # Use PDT timezone for game dates
@@ -188,6 +190,7 @@ def fetch_betting_odds(date_str):
 # Store initial bets globally
 INITIAL_BETS = []
 
+# Route for rendering the main page (index.html)
 @app.route("/")
 def index():
     global INITIAL_BETS
@@ -196,12 +199,12 @@ def index():
         pdt = pytz.timezone('US/Pacific')
         current_datetime = datetime.now(pdt).strftime("%B %d, %Y, %I:%M %p %Z")
         current_date = datetime.now(pdt).strftime("%Y-%m-%d")
-        logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}")
+        logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}, timezone: {pdt}")
 
         # Fetch betting odds for current date
         all_odds = fetch_betting_odds(current_date)
         if not all_odds:
-            # Fallback odds for May 4, 2025
+            # Fallback odds for May 4, 2025 (web:9)
             all_odds = [
                 {
                     'game': 'Cleveland Cavaliers vs. Indiana Pacers',
@@ -231,7 +234,7 @@ def index():
         filtered_odds = [game for game in all_odds if game['date'] == current_date]
         logger.debug(f"Filtered odds: {json.dumps(filtered_odds, indent=2)}")
 
-        # Sort odds by game and team
+        # Sort odds by price (descending)
         odds_with_min_price = []
         for game in filtered_odds:
             try:
@@ -244,6 +247,7 @@ def index():
         odds = [game for game, _ in odds_with_min_price[:4]]
         logger.debug(f"Sorted odds: {json.dumps(odds, indent=2)}")
 
+        # Build INITIAL_BETS for template
         INITIAL_BETS = []
         for game in odds:
             try:
@@ -269,6 +273,7 @@ def index():
         logger.error(f"Error rendering index: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+# Route for handling chat queries (GET for instructions, POST for processing)
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     logger.debug(f"Handling request to /chat with method: {request.method}")
@@ -284,7 +289,8 @@ def chat():
             "user": "",
             "grok": "Invalid request. Please provide a JSON payload with 'message'.",
             "bets": INITIAL_BETS,
-            "is_grok_search": False
+            "is_grok_search": False,
+            "response_source": "none"
         }), 400
 
     query = data.get("message", "").lower()
@@ -300,7 +306,8 @@ def chat():
             "user": query,
             "grok": grok_response[:600],
             "bets": get_bets(query, grok_response),
-            "is_grok_search": is_grok_search
+            "is_grok_search": is_grok_search,
+            "response_source": "deep_search_query" if is_grok_search else "search_nba_data"
         }
         logger.debug(f"Response: {json.dumps(response, indent=2)}")
         return jsonify(response)
@@ -310,16 +317,21 @@ def chat():
             "user": query,
             "grok": "Sorry, something went wrong. Try again later.",
             "bets": INITIAL_BETS,
-            "is_grok_search": False
+            "is_grok_search": False,
+            "response_source": "none"
         }), 500
 
+# Query XAI API for detailed NBA data
 def deep_search_query(query):
+    # API endpoint and headers
     XAI_API_URL = "https://api.x.ai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {XAI_API_KEY}",
         "Content-Type": "application/json"
     }
+    # Current date in PDT for context
     current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
+    # System prompt with playoff context and LeBron's high score
     prompt = (
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date}. For past week queries, check games from {current_date} back 7 days; exclude future dates. "
@@ -332,6 +344,7 @@ def deep_search_query(query):
         f"For player stats (e.g., LeBron James' highest scoring game), use verified NBA data (e.g., LeBron's career-high is 61 points on 2014-03-03 vs. Charlotte). "
         f"If no data is found or teams are eliminated, provide last game details or confirm elimination with series result. Max 600 chars."
     )
+    # API payload with prompt and query
     payload = {
         "model": "grok-beta",
         "messages": [
@@ -341,9 +354,10 @@ def deep_search_query(query):
         "max_tokens": 600,
         "temperature": 0.7
     }
-    for attempt in range(3):  # Increased retries
+    # Retry API call up to 3 times
+    for attempt in range(3):
         try:
-            response = requests.post(XAI_API_URL, json=payload, headers=headers, timeout=10)
+            response = requests.post(XAI_API_URL, json=payload, headers=headers, timeout=12)  # Increased timeout
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"].strip()[:600]
             safe_result = result.encode('ascii', 'ignore').decode('ascii')
@@ -356,17 +370,18 @@ def deep_search_query(query):
             else:
                 logger.error(f"DeepSearch failed after 3 attempts: {str(e)}")
                 # Fallback for LeBron high score
-                if "lebron" in query.lower() and "highest score" in query.lower():
+                if "lebron" in query.lower() and ("highest score" in query.lower() or "high score" in query.lower()):
                     return "LeBron James' highest NBA game score is 61 points, achieved on March 3, 2014, against the Charlotte Bobcats.", False
                 return "No data available", False
     return "No data available", False
 
+# Process NBA queries using known series or DeepSearch
 def search_nba_data(query, user_teams, query_timestamp):
     logger.debug(f"user_teams: {user_teams}")
     current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
     current_dt = datetime.strptime(current_date, "%Y-%m-%d")
 
-    # Handle historical queries
+    # Handle historical queries (e.g., NBA Finals winners)
     year_match = re.search(r'\b(19|20)\d{2}\b', query)
     if year_match and any(word in query.lower() for word in ["won", "champion", "finals"]):
         year = int(year_match.group())
@@ -438,13 +453,21 @@ def search_nba_data(query, user_teams, query_timestamp):
                         elif "2025-04-29" in series_key:
                             response = f"Denver Nuggets won vs. LA Clippers on 2025-04-29, score 131-115. Series: {status}."
                             return response, False
+                    if team == "Los Angeles Lakers":
+                        if "2025-04-30" in series_key:
+                            response = f"The Lakers lost their last game against the Timberwolves on 2025-04-30, with a score of 98-107. Anthony Davis led the team with 30 points and 14 rebounds. The Timberwolves now lead the series 3-1."
+                            return response, False
+                    if team == "Golden State Warriors":
+                        if "2025-05-02" in series_key:
+                            response = f"Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
+                            return response, False
 
     # All other queries route to DeepSearch
     logger.debug(f"Routing query to DeepSearch: {query}")
     grok_response, is_grok_search = deep_search_query(query)
 
     # Validate DeepSearch response
-    if user_teams and team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics", "Denver Nuggets"]:
+    if user_teams and team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics", "Denver Nuggets", "Golden State Warriors"]:
         if "eliminated" in grok_response.lower() or "no future games" in grok_response.lower():
             logger.warning(f"DeepSearch incorrectly reported {team} eliminated: {grok_response}")
             if team == "Los Angeles Lakers" and "next" in query.lower():
@@ -465,9 +488,13 @@ def search_nba_data(query, user_teams, query_timestamp):
             if team == "Denver Nuggets" and "last" in query.lower():
                 response = "Denver Nuggets won vs. LA Clippers on 2025-05-03, Game 7. Series: Nuggets win 4-3."
                 return response, False
+            if team == "Golden State Warriors" and "last" in query.lower():
+                response = "Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
+                return response, False
 
     return grok_response, is_grok_search
 
+# Get betting odds for specific teams or today's games
 def get_game_odds(query):
     normalized_teams = [normalize_team_name(query) for query in query.split() if normalize_team_name(query)]
     current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
@@ -490,6 +517,7 @@ def get_game_odds(query):
     logger.debug("No relevant odds found")
     return []
 
+# Generate bets for query responses
 def get_bets(query, grok_response):
     safe_response = (grok_response or "").encode('ascii', 'ignore').decode('ascii')
     user_teams = [normalize_team_name(word) for word in (query + " " + safe_response).split() if normalize_team_name(word)]
@@ -510,6 +538,6 @@ def get_bets(query, grok_response):
     logger.debug(f"Bets generated: {json.dumps(bets, indent=2)}")
     return bets
 
+# Run Flask app locally for debugging
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
-    #nbachat25 app5.py 05/04/2025 6:24PM
