@@ -336,7 +336,7 @@ def deep_search_query(query):
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date}. For past week queries, check games from {current_date} back 7 days; exclude future dates. "
         f"For future games, verify dates and times with NBA.com or ESPN in PDT, ensuring no games are missed due to playoff status. "
-        f"For today's games (May 4, 2025), include: Cavaliers vs. Pacers (Game 1, 7:00 PM PDT), Rockets vs. Warriors (Game 7, 8:30 PM PDT). "
+        f"For today's games (May 4, 2025), include: Cavaliers vs. Pacers (Game 1, 6:00 PM PDT), Rockets vs. Warriors (Game 7, 8:30 PM PDT). "
         f"For series status, provide current playoff standings (e.g., 'Team A leads 3-1') for the 2024-25 NBA playoffs. "
         f"Known series: Lakers vs. Timberwolves, Game 5 on 2025-04-30 at 7:00 PM PDT (Timberwolves lead 3-1), Game 6 on 2025-05-02 at 10:00 AM PDT (if necessary); "
         f"Heat vs. Cavaliers, ended 2025-04-28 (Cavaliers win 4-0); Clippers vs. Nuggets, ended 2025-05-03 (Nuggets win 4-3); "
@@ -363,7 +363,6 @@ def deep_search_query(query):
             safe_result = result.encode('ascii', 'ignore').decode('ascii')
             logger.debug(f"DeepSearch response: {safe_result}")
             return result, True
-        
         except requests.RequestException as e:
             logger.warning(f"DeepSearch attempt {attempt + 1} failed: {str(e)}")
             if attempt < 2:
@@ -542,3 +541,4 @@ def get_bets(query, grok_response):
 # Run Flask app locally for debugging
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
+    # lat update 5/5/2025 9:00
