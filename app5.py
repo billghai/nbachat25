@@ -109,7 +109,7 @@ KNOWN_SERIES = {
     "Denver Nuggets vs LA Clippers 2025-05-01": "Series tied 3-3",
     "LA Clippers vs Denver Nuggets 2025-05-03": "Nuggets win 4-3",
     "Houston Rockets vs Golden State Warriors 2025-05-02": "Series tied 3-3",
-    "Golden State Warriors vs Houston Rockets 2025-05-04": "Warriors lead 3-3"
+    "Golden State Warriors vs Houston Rockets 2025-05-04": "Series tied 3-3"
 }
 
 # Jinja2 filter to format dates in templates (e.g., "2025-05-04" -> "May 04, 2025")
@@ -363,6 +363,7 @@ def deep_search_query(query):
             safe_result = result.encode('ascii', 'ignore').decode('ascii')
             logger.debug(f"DeepSearch response: {safe_result}")
             return result, True
+        
         except requests.RequestException as e:
             logger.warning(f"DeepSearch attempt {attempt + 1} failed: {str(e)}")
             if attempt < 2:
@@ -370,7 +371,7 @@ def deep_search_query(query):
             else:
                 logger.error(f"DeepSearch failed after 3 attempts: {str(e)}")
                 # Fallback for LeBron high score
-                if "lebron" in query.lower() and ("highest score" in query.lower() or "high score" in query.lower()):
+                if "lebron" in query.lower() and any(phrase in query.lower() for phrase in ["highest score", "high score", "most points"]):
                     return "LeBron James' highest NBA game score is 61 points, achieved on March 3, 2014, against the Charlotte Bobcats.", False
                 return "No data available", False
     return "No data available", False
