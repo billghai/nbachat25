@@ -4,6 +4,8 @@ body {
     margin: 20px;
     background-color: #f4f4f4;
 }
+
+/* Main container for layout */
 .container {
     display: flex;
     flex-direction: column;
@@ -11,6 +13,8 @@ body {
     max-width: 800px;
     margin: auto;
 }
+
+/* Chat container for messages */
 #chat-container {
     background-color: white;
     border-radius: 8px;
@@ -21,24 +25,46 @@ body {
     -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile */
     position: relative;
 }
+
+/* Paragraph spacing in chat container */
 #chat-container p {
     margin: 5px 0;
 }
+
+/* User messages in chat */
 #chat-container .user {
     color: blue;
     font-weight: bold;
 }
+
+/* Default Grok responses (fallback) */
 #chat-container .grok {
     color: black;
 }
-#chat-container .grok-search {
-    color: green;
+
+/* Responses from search_nba_data (blue) */
+#chat-container .grok-search-nba-data {
+    color: #0000FF; /* Blue for search_nba_data */
 }
+
+/* Responses from deep_search_query (green) */
+#chat-container .grok-deep-search {
+    color: #008000; /* Green for deep_search_query */
+}
+
+/* Error messages */
+#chat-container .grok-error {
+    color: #FF0000; /* Red for errors */
+}
+
+/* Input container for chat input and button */
 #input-container {
     display: flex;
     gap: 10px;
     align-items: center;
 }
+
+/* Chat input field */
 #message-input {
     flex-grow: 1;
     padding: 10px;
@@ -46,6 +72,8 @@ body {
     border-radius: 4px;
     font-size: 14px;
 }
+
+/* Send button with basketball emoji */
 #send-button {
     padding: 10px 20px;
     background-color: #007bff;
@@ -58,9 +86,13 @@ body {
     align-items: center;
     gap: 5px;
 }
+
+/* Hover effect for send button */
 #send-button:hover {
     background-color: #0056b3;
 }
+
+/* Betting suggestions container */
 #bets-container {
     background-color: white;
     border-radius: 8px;
@@ -69,41 +101,57 @@ body {
     max-height: 300px;
     overflow-y: auto;
 }
+
+/* Betting suggestions header */
 #bets-container h4 {
     font-size: 14px;
     font-weight: bold;
     margin: 0 0 10px 0;
 }
+
+/* Individual bet styling */
 .bet {
     margin-bottom: 15px;
 }
+
+/* Bet game title */
 .bet-game {
     font-size: 14px;
     font-weight: bold;
     margin-bottom: 5px;
 }
+
+/* Bet moneyline odds */
 .bet-moneyline {
     margin: 0;
     font-size: 14px;
 }
+
+/* Footer for betting suggestions */
 .bets-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-top: 10px;
 }
+
+/* Note for betting suggestions */
 .bets-note {
     font-size: 12px;
     color: #666;
     font-style: italic;
     text-align: left;
 }
+
+/* More bets link */
 .more-bets {
     font-size: 12px;
     color: #007bff;
     text-decoration: underline;
     text-align: right;
 }
+
+/* Hover effect for more bets link */
 .more-bets:hover {
     color: #0056b3;
 }

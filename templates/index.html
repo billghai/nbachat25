@@ -1,38 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- Meta tags for character encoding and responsive viewport -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SlamDunkChat</title>
+    <!-- Link to stylesheet for UI styling -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
+    <!-- Main container for app content -->
     <div class="container">
+        <!-- App header -->
         <h1>SlamDunkChat</h1>
+        <!-- Display current time in PDT -->
         <p>Current Time: {{ current_datetime }}</p>
+        <!-- Container for chat messages, populated by script.js -->
         <div id="chat-container">
             <!-- Chat messages will be appended here -->
         </div>
+        <!-- Input container for user queries -->
         <div id="input-container">
+            <!-- Text input for user queries -->
             <input type="text" id="message-input" placeholder="Ask about NBA games and players">
+            <!-- Send button with basketball emoji -->
             <button id="send-button">Ask <span>🏀</span></button>
         </div>
+        <!-- Container for betting suggestions -->
         <div id="bets-container">
+            <!-- Betting suggestions header -->
             <h4>Betting Suggestions</h4>
+            <!-- Loop through initial_bets from app5.py -->
             {% for bet in initial_bets %}
             <div class="bet">
+                <!-- Game title and formatted date -->
                 <p class="bet-game">{{ bet.game }}, {{ bet.date | format_date }}</p>
+                <!-- Loop through moneyline odds for each team -->
                 {% for team, odds in bet.moneyline.items() %}
                 <p class="bet-moneyline">{{ team }}: {{ odds }}</p>
                 {% endfor %}
             </div>
             {% endfor %}
+            <!-- Footer with link to external betting site -->
             <div class="bets-footer">
-                <span class="bets-note">Note: The games data may be off by 12 hours.</span>
+                <!-- Removed outdated 12-hour note -->
                 <a href="{{ betting_site_url }}" class="more-bets">More bets</a>
             </div>
         </div>
     </div>
+    <!-- Link to JavaScript for chat functionality -->
     <script src="/static/js/script.js"></script>
 </body>
 </html>
