@@ -123,7 +123,7 @@ except FileNotFoundError:
         "Houston Rockets vs Golden State Warriors 2025-05-02": "Series tied 3-3",
         "Golden State Warriors vs Houston Rockets 2025-05-04": "Warriors win 4-3",
         "New York Knicks vs Boston Celtics 2025-05-05": "Knicks lead 1-0",
-        "Indiana Pacers vs Cleveland Cavaliers 2025-05-04": "Pacers lead 1-0",
+        "Indiana Pacers vs Cleveland Cavaliers 2025-05-04": "Pacers lead 2-0",
         "Golden State Warriors vs Minnesota Timberwolves 2025-05-06": "Series tied 0-0",
         "Indiana Pacers vs Milwaukee Bucks 2025-05-02": "Pacers win 4-1",
         "Boston Celtics vs Orlando Magic 2025-05-01": "Celtics win 4-1",
@@ -217,7 +217,8 @@ def index():
         pdt = pytz.timezone('US/Pacific')
         current_datetime = datetime.now(pdt).strftime("%B %d, %Y, %I:%M %p %Z")
         current_date = datetime.now(pdt).strftime("%Y-%m-%d")
-        logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}, timezone: {pdt}")
+        app_filename = "app8.py"  # Hardcode for clarity
+        logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}, app_filename: {app_filename}")
 
         # Fetch betting odds for current date
         all_odds = fetch_betting_odds(current_date)
@@ -284,7 +285,8 @@ def index():
             "index.html",
             initial_bets=INITIAL_BETS,
             current_datetime=current_datetime,
-            betting_site_url=BETTING_SITE_URL
+            betting_site_url=BETTING_SITE_URL,
+            app_filename=app_filename
         )
     except Exception as e:
         logger.error(f"Error rendering index: {str(e)}")
@@ -641,3 +643,4 @@ def get_bets(query, grok_response):
 # Run Flask app locally for debugging
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
+    # updated 0506 8:30
