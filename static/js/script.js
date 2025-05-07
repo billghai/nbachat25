@@ -28,8 +28,12 @@ document.addEventListener('DOMContentLoaded', () => {
             grokDiv.innerHTML = `<strong>Grok:</strong> ${data.grok}`;
             chatMessages.appendChild(grokDiv);
 
-            // Add betting suggestions if present
-            if (data.bets && data.bets.length > 0) {
+            // Add betting suggestions only for relevant queries
+            if (data.bets && data.bets.length > 0 && 
+                (message.toLowerCase().includes('game') || 
+                 message.toLowerCase().includes('bet') || 
+                 message.toLowerCase().includes('schedule') || 
+                 message.toLowerCase().includes('playoffs'))) {
                 data.bets.forEach(bet => {
                     const betDiv = document.createElement('div');
                     betDiv.className = 'mb-2 text-gray-600';
