@@ -1,4 +1,4 @@
-import logging
+    import logging
     import os
     from flask import Flask, render_template, request, jsonify, session
     from datetime import datetime, timedelta
@@ -297,7 +297,7 @@ import logging
         logger.debug(f"Handling request to /chat with method: {request.method}")
         if request.method == "GET":
             return jsonify({
-                "message": "This endpoint requires a POST request with JSON payload {'message': 'your query'}. Example: curl -X POST -H 'Content-Type: application/json' -d '{\"message\": \"When is the next Lakers game?\"}' http://127.0.0.1:5000/chat"
+                "message": "This endpoint requires a POST request with JSON payload {'message': 'your query'}. Example: curl -X POST -H 'Content-Type: application/json' -d '{\"0070.0.1' http://127.0.0.1:5000/chat"
             })
 
         data = request.get_json()
@@ -649,4 +649,4 @@ import logging
     # Run Flask app locally for debugging
     if __name__ == "__main__":
         app.run(host='127.0.0.1', port=5000, debug=True)
-    # updated 0507 8:30
+ 
