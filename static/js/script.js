@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add user message
         const userDiv = document.createElement('div');
-        userDiv.className = 'mb-2 text-blue-600';
+        userDiv.className = 'mb-2 text-primary';
         userDiv.innerHTML = `<strong>You:</strong> ${message}`;
         chatMessages.appendChild(userDiv);
 
@@ -24,19 +24,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Add Grok response
             const grokDiv = document.createElement('div');
-            grokDiv.className = `mb-2 ${data.is_grok_search ? 'text-green-600' : 'text-blue-600'}`;
+            grokDiv.className = `mb-2 ${data.is_grok_search ? 'text-success' : 'text-primary'}`;
             grokDiv.innerHTML = `<strong>Grok:</strong> ${data.grok}`;
             chatMessages.appendChild(grokDiv);
 
-            // Add betting suggestions only for relevant queries
+            // Add betting suggestions only for explicit betting/game queries
             if (data.bets && data.bets.length > 0 && 
-                (message.toLowerCase().includes('game') || 
-                 message.toLowerCase().includes('bet') || 
+                (message.toLowerCase().includes('bet') || 
+                 message.toLowerCase().includes('odds') || 
                  message.toLowerCase().includes('schedule') || 
-                 message.toLowerCase().includes('playoffs'))) {
+                 message.toLowerCase().includes('games'))) {
                 data.bets.forEach(bet => {
                     const betDiv = document.createElement('div');
-                    betDiv.className = 'mb-2 text-gray-600';
+                    betDiv.className = 'mb-2 text-muted';
                     betDiv.innerHTML = `<strong>Bet:</strong> ${bet.game}, ${bet.date}<br>` +
                         Object.entries(bet.moneyline).map(([team, odds]) => `${team}: ${odds}`).join('<br>');
                     chatMessages.appendChild(betDiv);
@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error:', error);
             const errorDiv = document.createElement('div');
-            errorDiv.className = 'mb-2 text-red-600';
+            errorDiv.className = 'mb-2 text-danger';
             errorDiv.innerHTML = `<strong>Error:</strong> Failed to get response. Please try again.`;
             chatMessages.appendChild(errorDiv);
         }

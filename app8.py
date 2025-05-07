@@ -348,11 +348,19 @@ import logging
             "Content-Type": "application/json"
         }
         # Current date in PDT for context
-        current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
+        pdt = pytz.timezone('US/Pacific')
+        current_date = datetime.now(pdt)
+        current_date_str = current_date.strftime("%Y-%m-%d")
+        # Calculate next Friday (May 9, 2025, for queries on May 7, 2025)
+        days_until_friday = (4 - current_date.weekday()) % 7
+        if days_until_friday == 0:
+            days_until_friday = 7
+        next_friday = current_date + timedelta(days=days_until_friday)
+        next_friday_str = next_friday.strftime("%Y-%m-%d")
         # System prompt with playoff context and LeBron's high score
         prompt = (
             f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
-            f"Current date: {current_date}. For past week queries, check games from {current_date} back 7 days; exclude future dates. "
+            f"Current date: {current_date_str}. For past week queries, check games from {current_date_str} back 7 days; exclude future dates. "
             f"For future games, verify dates and times with NBA.com or ESPN in PDT, ensuring no games are missed due to playoff status. "
             f"For today's games (May 7, 2025), include: Knicks vs. Celtics (Game 2, 7:00 PM PDT), Warriors vs. Timberwolves (Game 2, 9:30 PM PDT). "
             f"For series status, provide current playoff standings (e.g., 'Team A leads 3-1') for the 2024-25 NBA playoffs. "
@@ -365,9 +373,8 @@ import logging
             f"Warriors vs. Rockets, ended 2025-05-04 (Warriors win 4-3). "
             f"For player stats (e.g., LeBron James' highest scoring game), use verified NBA data (e.g., LeBron's career-high is 61 points on 2014-03-03 vs. Charlotte). "
             f"For NBA Finals predictions, use current playoff performance and betting odds (Thunder +150, Celtics +190). "
-            f"For next week's games (May 9-15, 2025), include: Pacers vs. Cavaliers (Game 3, May 9, 7:30 PM PDT, ESPN; Game 4, May 11, 8:00 PM PDT, TNT; Game 5, May 13, TBD, TNT if necessary); "
-            f"Knicks vs. Celtics (Game 3, May 10, 3:30 PM PDT, ABC; Game 4, May 12, 7:30 PM PDT, ESPN); Thunder vs. Nuggets (Game 3, May 9, 10:00 PM PDT, ESPN; Game 4, May 11, 3:30 PM PDT, ABC; Game 5, May 13, TBD, TNT if necessary); "
-            f"Timberwolves vs. Warriors (Game 3, May 10, 8:30 PM PDT, ABC; Game 4, May 12, 10:00 PM PDT, ESPN). "
+            f"For queries about 'next Friday' games, use May 9, 2025, and include: Pacers vs. Cavaliers (Game 3, 7:30 PM PDT, ESPN; Pacers lead 2-0); "
+            f"Thunder vs. Nuggets (Game 3, 10:00 PM PDT, ESPN; Series tied 0-0). Exclude games from other dates in the response. "
             f"If no data is found or teams are eliminated, provide last game details or confirm elimination with series result. Max 600 chars."
         )
         # API payload with prompt and query
