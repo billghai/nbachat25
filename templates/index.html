@@ -1,37 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SlamDunkChat - Running {{ app_filename }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body class="bg-gray-100 font-sans">
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold mb-4">SlamDunkChat - Running {{ app_filename }}</h1>
-        <p class="text-gray-600 mb-4">Current Time: {{ current_datetime }}</p>
-        
-        <div id="chat-container" class="bg-white p-4 rounded shadow mb-4">
-            <div id="chat-messages" class="mb-4 h-96 overflow-y-auto"></div>
-            <form id="chat-form" class="flex">
-                <input type="text" id="user-input" class="flex-grow p-2 border rounded-l" placeholder="Ask about NBA games and players" required>
-                <button type="submit" class="bg-blue-500 text-white p-2 rounded-r">Ask 🏀</button>
-            </form>
-        </div>
-
-        <h2 class="text-2xl font-bold mb-2">Betting Suggestions</h2>
-        {% for bet in initial_bets %}
-            <div class="bg-white p-4 rounded shadow mb-2">
-                <p class="font-semibold">{{ bet.game }}, {{ bet.date | format_date }}</p>
-                {% for team, odds in bet.moneyline.items() %}
-                    <p>{{ team }}: {{ odds }}</p>
-                {% endfor %}
-                <a href="{{ betting_site_url }}" target="_blank" class="text-blue-500 hover:underline">Place Bet</a>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>SlamDunkChat - Running {{ app_filename }}</title>
+        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    </head>
+    <body class="bg-gray-100 font-sans">
+        <div class="container mx-auto p-4">
+            <h1 class="text-3xl font-bold mb-4">SlamDunkChat - Running {{ app_filename }}</h1>
+            <p class="text-gray-600 mb-4">Current Time: {{ current_datetime }}</p>
+            
+            <div id="chat-container" class="bg-white p-4 rounded shadow mb-4">
+                <div id="chat-messages" class="mb-4 h-96 overflow-y-auto"></div>
+                <form id="chat-form" class="flex">
+                    <input type="text" id="user-input" class="flex-grow p-2 border rounded-l" placeholder="Ask about NBA games and players" required>
+                    <button type="submit" class="bg-blue-500 text-white p-2 rounded-r">Ask 🏀</button>
+                </form>
             </div>
-        {% endfor %}
-        <a href="{{ betting_site_url }}" target="_blank" class="text-blue-500 hover:underline">More bets</a>
-    </div>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-</body>
-</html>
+
+            <h2 class="text-2xl font-bold mb-2">Betting Suggestions</h2>
+            {% for bet in initial_bets %}
+                <div class="bg-white p-4 rounded shadow mb-2">
+                    <p class="font-semibold">{{ bet.game }}, {{ bet.date | format_date }}</p>
+                    {% for team, odds in bet.moneyline.items() %}
+                        <p>{{ team }}: {{ odds }}</p>
+                    {% endfor %}
+                    <a href="{{ betting_site_url }}" target="_blank" class="text-blue-500 hover:underline">Place Bet</a>
+                </div>
+            {% endfor %}
+            <a href="{{ betting_site_url }}" target="_blank" class="text-blue-500 hover:underline">More bets</a>
+        </div>
+        <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    </body>
+    </html>

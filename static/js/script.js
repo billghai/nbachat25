@@ -1,57 +1,54 @@
-// JavaScript for SlamDunkChat.com chat UI
+document.addEventListener('DOMContentLoaded', () => {
+    const chatForm = document.getElementById('chat-form');
+    const userInput = document.getElementById('user-input');
+    const chatMessages = document.getElementById('chat-messages');
 
-// Get DOM elements
-const chatContainer = document.getElementById('chat-container');
-const messageInput = document.getElementById('message-input');
-const sendButton = document.getElementById('send-button');
+    chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = userInput.value.trim();
+        if (!message) return;
 
-// Add event listeners for sending messages
-sendButton.addEventListener('click', sendMessage);
-messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
+        // Add user message
+        const userDiv = document.createElement('div');
+        userDiv.className = 'mb-2 text-blue-600';
+        userDiv.innerHTML = `<strong>You:</strong> ${message}`;
+        chatMessages.appendChild(userDiv);
+
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message })
+            });
+            const data = await response.json();
+
+            // Add Grok response
+            const grokDiv = document.createElement('div');
+            grokDiv.className = `mb-2 ${data.is_grok_search ? 'text-green-600' : 'text-blue-600'}`;
+            grokDiv.innerHTML = `<strong>Grok:</strong> ${data.grok}`;
+            chatMessages.appendChild(grokDiv);
+
+            // Add betting suggestions if present
+            if (data.bets && data.bets.length > 0) {
+                data.bets.forEach(bet => {
+                    const betDiv = document.createElement('div');
+                    betDiv.className = 'mb-2 text-gray-600';
+                    betDiv.innerHTML = `<strong>Bet:</strong> ${bet.game}, ${bet.date}<br>` +
+                        Object.entries(bet.moneyline).map(([team, odds]) => `${team}: ${odds}`).join('<br>');
+                    chatMessages.appendChild(betDiv);
+                });
+            }
+
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        } catch (error) {
+            console.error('Error:', error);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'mb-2 text-red-600';
+            errorDiv.innerHTML = `<strong>Error:</strong> Failed to get response. Please try again.`;
+            chatMessages.appendChild(errorDiv);
+        }
+
+        userInput.value = '';
+    });
 });
-
-// Send user message to /chat endpoint and display response
-async function sendMessage() {
-    const message = messageInput.value.trim();
-    if (!message) return; // Ignore empty messages
-
-    // Append user message
-    appendMessage('user', `You: ${message}`);
-    messageInput.value = ''; // Clear input
-
-    try {
-        // Send POST request to /chat
-        const response = await fetch('/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
-        });
-        const data = await response.json();
-        // Determine CSS class based on response_source
-        const grokClass = data.response_source === 'search_nba_data' ? 'grok-search-nba-data' : 
-                         data.response_source === 'deep_search_query' ? 'grok-deep-search' : 'grok';
-        // Append Grok response
-        appendMessage(grokClass, `Grok: ${data.grok}`);
-    } catch (error) {
-        console.error('Error:', error);
-        // Append error message
-        appendMessage('grok-error', 'Grok: Sorry, something went wrong. Try again later.');
-    }
-}
-
-// Append message to chat container with specified class
-function appendMessage(type, text) {
-    const p = document.createElement('p');
-    p.className = type; // Apply class (user, grok-search-nba-data, grok-deep-search, grok-error)
-    p.textContent = text;
-    chatContainer.appendChild(p);
-    chatContainer.scrollTop = chatContainer.scrollHeight; // Auto-scroll to bottom
-}
-
-// Format dates for betting suggestions (e.g., "2025-05-04" -> "May 4, 2025")
-function formatDate(dateStr) {
-    if (!dateStr || dateStr === 'N/A') return 'N/A';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
