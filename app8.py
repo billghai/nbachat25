@@ -17,7 +17,7 @@ app.permanent_session_lifetime = timedelta(minutes=30)  # Session lasts 30 minut
 
 # Configure logging for Render environment
 logger = logging.getLogger(__name__)  # Logger for this module
-LOG_FILE = 'nba_chat2_app5.log'  # Relative path for log file in Render's /opt/render/project/src
+LOG_FILE = 'nba_chat2_app8.log'  # Updated log file name
 logging.basicConfig(
     level=logging.DEBUG,  # Log all debug and higher messages
     format='%(asctime)s - %(levelname)s - %(message)s',  # Log format with timestamp, level, message
@@ -73,6 +73,9 @@ TEAM_NAME_MAPPING = {
     "trailblazers": "Portland Trail Blazers",
     "trailbalzers": "Portland Trail Blazers",
     "pistons": "Detroit Pistons",
+    "timberwolves": "Minnesota Timberwolves",
+    "wolves": "Minnesota Timberwolves",
+    "minnesota timberwolves": "Minnesota Timberwolves",
 }
 
 # Team ID to name mapping for API compatibility
@@ -95,10 +98,11 @@ TEAM_ID_TO_NAME = {
     1610612765: "Detroit Pistons",
 }
 
-# Known series statuses for quick query responses (updated for May 4, 2025, web:9, web:22)
+# Known series statuses for quick query responses (updated for May 6, 2025, web:3, web:15, post:4)
 KNOWN_SERIES = {
     "Los Angeles Lakers vs Minnesota Timberwolves 2025-04-30": "Timberwolves lead 3-1",
     "Minnesota Timberwolves vs Los Angeles Lakers 2025-05-02": "Timberwolves lead 3-1",
+    "Los Angeles Lakers vs Minnesota Timberwolves 2025-05-04": "Timberwolves lead 3-1",
     "Miami Heat vs Cleveland Cavaliers 2025-04-28": "Cavaliers win 4-0",
     "New York Knicks vs Detroit Pistons 2025-04-24": "Knicks lead 2-1",
     "New York Knicks vs Detroit Pistons 2025-04-27": "Knicks lead 3-1",
@@ -109,7 +113,10 @@ KNOWN_SERIES = {
     "Denver Nuggets vs LA Clippers 2025-05-01": "Series tied 3-3",
     "LA Clippers vs Denver Nuggets 2025-05-03": "Nuggets win 4-3",
     "Houston Rockets vs Golden State Warriors 2025-05-02": "Series tied 3-3",
-    "Golden State Warriors vs Houston Rockets 2025-05-04": "Series tied 3-3"
+    "Golden State Warriors vs Houston Rockets 2025-05-04": "Series tied 3-3",
+    "New York Knicks vs Boston Celtics 2025-05-05": "Knicks lead 1-0",
+    "Indiana Pacers vs Cleveland Cavaliers 2025-05-04": "Pacers lead 1-0",
+    "Golden State Warriors vs Minnesota Timberwolves 2025-05-06": "Series tied 0-0",
 }
 
 # Jinja2 filter to format dates in templates (e.g., "2025-05-04" -> "May 04, 2025")
@@ -203,48 +210,47 @@ def index():
 
         # Fetch betting odds for current date
         all_odds = fetch_betting_odds(current_date)
+        logger.debug(f"Fetched odds for {current_date}: {json.dumps(all_odds, indent=2)}")
         if not all_odds:
-            # Fallback odds for May 4, 2025 (web:9)
+            # Fallback odds for May 6, 2025 (web:9)
             all_odds = [
                 {
                     'game': 'Cleveland Cavaliers vs. Indiana Pacers',
-                    'date': '2025-05-04',
+                    'date': '2025-05-06',
                     'team': 'Cleveland Cavaliers',
                     'odds': '-150'
                 },
                 {
                     'game': 'Cleveland Cavaliers vs. Indiana Pacers',
-                    'date': '2025-05-04',
+                    'date': '2025-05-06',
                     'team': 'Indiana Pacers',
                     'odds': '+130'
                 },
                 {
-                    'game': 'Houston Rockets vs. Golden State Warriors',
-                    'date': '2025-05-04',
-                    'team': 'Houston Rockets',
+                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                    'date': '2025-05-06',
+                    'team': 'Minnesota Timberwolves',
                     'odds': '+200'
                 },
                 {
-                    'game': 'Houston Rockets vs. Golden State Warriors',
-                    'date': '2025-05-04',
+                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                    'date': '2025-05-06',
                     'team': 'Golden State Warriors',
                     'odds': '-240'
                 }
             ]
-        filtered_odds = [game for game in all_odds if game['date'] == current_date]
+            logger.debug("Using fallback odds for May 6, 2025")
+        
+        # Include all odds, bypassing strict date filter
+        filtered_odds = all_odds
         logger.debug(f"Filtered odds: {json.dumps(filtered_odds, indent=2)}")
 
-        # Sort odds by price (descending)
-        odds_with_min_price = []
+        # Sort odds by game and team to avoid duplicates
+        odds_dict = {}
         for game in filtered_odds:
-            try:
-                price = float(game['odds'].replace('+', '')) if '+' in game['odds'] else float(game['odds'])
-                odds_with_min_price.append((game, price))
-            except Exception as e:
-                logger.debug(f"Error processing odds for game {game.get('game', 'unknown')}: {str(e)}")
-                continue
-        odds_with_min_price.sort(key=lambda x: x[1], reverse=True)
-        odds = [game for game, _ in odds_with_min_price[:4]]
+            game_key = f"{game['game']}_{game['date']}_{game['team']}"
+            odds_dict[game_key] = game
+        odds = list(odds_dict.values())[:4]
         logger.debug(f"Sorted odds: {json.dumps(odds, indent=2)}")
 
         # Build INITIAL_BETS for template
@@ -336,12 +342,18 @@ def deep_search_query(query):
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date}. For past week queries, check games from {current_date} back 7 days; exclude future dates. "
         f"For future games, verify dates and times with NBA.com or ESPN in PDT, ensuring no games are missed due to playoff status. "
-        f"For today's games (May 4, 2025), include: Cavaliers vs. Pacers (Game 1, 6:00 PM PDT), Rockets vs. Warriors (Game 7, 8:30 PM PDT). "
+        f"For today's games (May 6, 2025), include: Pacers vs. Cavaliers (Game 2, 7:00 PM PDT), Warriors vs. Timberwolves (Game 1, 9:30 PM PDT). "
         f"For series status, provide current playoff standings (e.g., 'Team A leads 3-1') for the 2024-25 NBA playoffs. "
-        f"Known series: Lakers vs. Timberwolves, Game 5 on 2025-04-30 at 7:00 PM PDT (Timberwolves lead 3-1), Game 6 on 2025-05-02 at 10:00 AM PDT (if necessary); "
-        f"Heat vs. Cavaliers, ended 2025-04-28 (Cavaliers win 4-0); Clippers vs. Nuggets, ended 2025-05-03 (Nuggets win 4-3); "
-        f"Knicks vs. Pistons, ended 2025-05-01 (Knicks win 4-2); Celtics vs. Magic, Game 5 on 2025-04-29 (Celtics lead 3-2). "
+        f"Known series: Lakers vs. Timberwolves, Game 7 on 2025-05-06 TBD (Timberwolves lead 3-1, if necessary); "
+        f"Knicks vs. Celtics, Game 2 on 2025-05-07 (Knicks lead 1-0); Pacers vs. Cavaliers, Game 2 on 2025-05-06 (Pacers lead 1-0); "
+        f"Thunder vs. Nuggets, Game 1 on 2025-05-05 (Series tied 0-0); Warriors vs. Timberwolves, Game 1 on 2025-05-06 (Series tied 0-0). "
+        f"Past series: Heat vs. Cavaliers, ended 2025-04-28 (Cavaliers win 4-0); Clippers vs. Nuggets, ended 2025-05-03 (Nuggets win 4-3); "
+        f"Knicks vs. Pistons, ended 2025-05-01 (Knicks win 4-2); Celtics vs. Magic, ended 2025-05-01 (Celtics win 4-1). "
         f"For player stats (e.g., LeBron James' highest scoring game), use verified NBA data (e.g., LeBron's career-high is 61 points on 2014-03-03 vs. Charlotte). "
+        f"For NBA Finals predictions, use current playoff performance and betting odds to estimate likely winners (e.g., Thunder, Celtics). "
+        f"For next week's games (May 9-15, 2025), include: Pacers vs. Cavaliers (Game 3, May 9; Game 4, May 11; Game 5, May 13 if necessary); "
+        f"Knicks vs. Celtics (Game 3, May 10; Game 4, May 12); Thunder vs. Nuggets (Game 3, May 9; Game 4, May 11; Game 5, May 13 if necessary); "
+        f"Timberwolves vs. Warriors (Game 3, May 10; Game 4, May 12). "
         f"If no data is found or teams are eliminated, provide last game details or confirm elimination with series result. Max 600 chars."
     )
     # API payload with prompt and query
@@ -357,7 +369,8 @@ def deep_search_query(query):
     # Retry API call up to 3 times
     for attempt in range(3):
         try:
-            response = requests.post(XAI_API_URL, json=payload, headers=headers, timeout=12)  # Increased timeout
+            response = requests.post(XAI_API_URL, json=payload, headers=headers, timeout=12)
+            logger.debug(f"API response status: {response.status_code}, content: {response.text[:200]}")
             response.raise_for_status()
             result = response.json()["choices"][0]["message"]["content"].strip()[:600]
             safe_result = result.encode('ascii', 'ignore').decode('ascii')
@@ -393,152 +406,187 @@ def search_nba_data(query, user_teams, query_timestamp):
     # Check known series for team-specific queries
     if user_teams and any(word in query.lower() for word in ["last", "next", "today", "tonight"]):
         team = user_teams[0]
+        # Prioritize latest series key for specific teams
+        series_keys = sorted(
+            [key for key in KNOWN_SERIES.keys() if team in key],
+            key=lambda x: datetime.strptime(x.split()[-1], "%Y-%m-%d"),
+            reverse=True
+        )
+        logger.debug(f"Series keys for {team}: {series_keys}")
+        logger.debug(f"Next game for {team}: selected series_key={series_key}")
         if "next" in query.lower():
             if team == "Los Angeles Lakers":
-                target_date = "2025-05-06"  # Game 7, if necessary
                 series_key = "Los Angeles Lakers vs Minnesota Timberwolves 2025-05-04"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Lakers: {series_key}")
                     response = f"Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: {KNOWN_SERIES[series_key]}."
                     return response, False
             if team == "New York Knicks":
-                series_key = "New York Knicks vs Detroit Pistons 2025-05-01"
+                series_key = "New York Knicks vs Boston Celtics 2025-05-05"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Knicks: {series_key}")
-                    response = f"New York Knicks won the series against Detroit Pistons on 2025-05-01, 4-2. No next game scheduled."
+                    response = f"New York Knicks play Boston Celtics on 2025-05-10, TBD (Game 3). Series: {KNOWN_SERIES[series_key]}."
                     return response, False
             if team == "Boston Celtics":
-                target_date = "2025-05-05"  # Game 6, if necessary
-                series_key = "Orlando Magic vs Boston Celtics 2025-04-29"
+                series_key = "New York Knicks vs Boston Celtics 2025-05-05"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Celtics: {series_key}")
-                    response = f"Boston Celtics may play Orlando Magic on 2025-05-05, TBD (Game 6, if necessary). Series: {KNOWN_SERIES[series_key]}."
+                    response = f"Boston Celtics play New York Knicks on 2025-05-10, TBD (Game 3). Series: {KNOWN_SERIES[series_key]}."
                     return response, False
             if team == "Denver Nuggets":
                 series_key = "LA Clippers vs Denver Nuggets 2025-05-03"
                 if series_key in KNOWN_SERIES:
                     logger.debug(f"Using known series for Nuggets: {series_key}")
-                    response = f"Denver Nuggets play Oklahoma City Thunder on 2025-05-05, Game 1, second round, TBD PDT. Series: {KNOWN_SERIES[series_key]} ended."
+                    response = f"Denver Nuggets play Oklahoma City Thunder on 2025-05-09, 10:00 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]} ended."
                     return response, False
-        if "last" in query.lower():
-            for series_key, status in KNOWN_SERIES.items():
-                if team in series_key:
-                    logger.debug(f"Using known series for {team}: {series_key}")
-                    if team == "Miami Heat":
-                        response = f"Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: {status}."
-                        return response, False
-                    if team == "LA Clippers":
-                        response = f"LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: {status}."
-                        return response, False
-                    if team == "New York Knicks":
-                        if "2025-04-29" in series_key:
-                            response = f"New York Knicks lost to Detroit Pistons on 2025-04-29, score 103-106. Series: {status}."
-                            return response, False
-                        elif "2025-04-27" in series_key:
-                            response = f"New York Knicks won vs. Detroit Pistons on 2025-04-27, score 94-93. Series: {status}."
-                            return response, False
-                        elif "2025-04-24" in series_key:
-                            response = f"New York Knicks won vs. Detroit Pistons on 2025-04-24, score 118-116. Series: {status}."
-                            return response, False
-                    if team == "Boston Celtics":
-                        response = f"Boston Celtics won vs. Orlando Magic on 2025-04-29, score 120-89. Series: {status}."
-                        return response, False
-                    if team == "Denver Nuggets":
-                        if "2025-05-03" in series_key:
-                            response = f"Denver Nuggets won vs. LA Clippers on 2025-05-03, Game 7. Series: {status}."
-                            return response, False
-                        elif "2025-05-01" in series_key:
-                            response = f"Denver Nuggets lost to LA Clippers on 2025-05-01, score 105-111. Series: {status}."
-                            return response, False
-                        elif "2025-04-29" in series_key:
-                            response = f"Denver Nuggets won vs. LA Clippers on 2025-04-29, score 131-115. Series: {status}."
-                            return response, False
-                    if team == "Los Angeles Lakers":
-                        if "2025-04-30" in series_key:
-                            response = f"The Lakers lost their last game against the Timberwolves on 2025-04-30, with a score of 98-107. Anthony Davis led the team with 30 points and 14 rebounds. The Timberwolves now lead the series 3-1."
-                            return response, False
-                    if team == "Golden State Warriors":
-                        if "2025-05-02" in series_key:
-                            response = f"Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
-                            return response, False
+            if team == "Minnesota Timberwolves":
+                series_key = "Los Angeles Lakers vs Minnesota Timberwolves 2025-05-04"
+                if series_key in KNOWN_SERIES:
+                    logger.debug(f"Using known series for Timberwolves: {series_key}")
+                    response = f"The Timberwolves’ next game is Game 7, May 6, 2025, TBD, vs. Lakers (Timberwolves lead 3-1), if necessary."
+                    return response, False
+            if team == "Golden State Warriors":
+                series_key = "Golden State Warriors vs Minnesota Timberwolves 2025-05-06"
+                if series_key in KNOWN_SERIES:
+                    logger.debug(f"Using known series for Warriors: {series_key}")
+                    response = f"Golden State Warriors play Minnesota Timberwolves on 2025-05-08, 8:30 PM PDT (Game 2). Series: {KNOWN_SERIES[series_key]}."
+                    return response, False
+            if team == "Indiana Pacers":
+                series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
+                if series_key in KNOWN_SERIES:
+                    logger.debug(f"Using known series for Pacers: {series_key}")
+                    response = f"Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]}."
+                    return response, False
+            if team == "Cleveland Cavaliers":
+                series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
+                if series_key in KNOWN_SERIES:
+                    logger.debug(f"Using known series for Cavaliers: {series_key}")
+                    response = f"Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]}."
+                    return response, False
+        if "last" in query.lower() and series_keys:
+            series_key = series_keys[0]  # Use the most recent series key
+            status = KNOWN_SERIES[series_key]
+            logger.debug(f"Using known series for {team}: {series_key}")
+            if team == "Miami Heat":
+                response = f"Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: {status}."
+                return response, False
+            if team == "LA Clippers":
+                response = f"LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: {status}."
+                return response, False
+            if team == "New York Knicks":
+                response = f"New York Knicks won vs. Boston Celtics on 2025-05-05, score 108-105 (OT). Series: {status}."
+                return response, False
+            if team == "Boston Celtics":
+                response = f"Boston Celtics lost to New York Knicks on 2025-05-05, score 105-108 (OT). Series: {status}."
+                return response, False
+            if team == "Denver Nuggets":
+                response = f"Denver Nuggets won vs. LA Clippers on 2025-05-03, 120-101, Game 7. Series: {status}."
+                return response, False
+            if team == "Los Angeles Lakers":
+                response = f"The Lakers lost their last game against the Timberwolves on 2025-04-30, with a score of 98-107. Anthony Davis led the team with 30 points and 14 rebounds. The Timberwolves now lead the series 3-1."
+                return response, False
+            if team == "Golden State Warriors":
+                response = f"Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
+                return response, False
+            if team == "Minnesota Timberwolves":
+                response = f"The Timberwolves won their last game against the Lakers on 2025-04-30, with a score of 107-98. Series: {status}."
+                return response, False
+            if team == "Indiana Pacers":
+                response = f"Indiana Pacers won vs. Cleveland Cavaliers on 2025-05-04, score 121-112. Series: {status}."
+                return response, False
+            if team == "Cleveland Cavaliers":
+                response = f"Cleveland Cavaliers lost to Indiana Pacers on 2025-05-04, score 112-121. Series: {status}."
+                return response, False
 
     # All other queries route to DeepSearch
     logger.debug(f"Routing query to DeepSearch: {query}")
     grok_response, is_grok_search = deep_search_query(query)
 
     # Validate DeepSearch response
-    if user_teams and team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics", "Denver Nuggets", "Golden State Warriors"]:
-        if "eliminated" in grok_response.lower() or "no future games" in grok_response.lower():
-            logger.warning(f"DeepSearch incorrectly reported {team} eliminated: {grok_response}")
-            if team == "Los Angeles Lakers" and "next" in query.lower():
-                response = "Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: Timberwolves lead 3-1."
-                return response, False
-            if team == "Miami Heat" and "last" in query.lower():
-                response = "Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: Cavaliers win 4-0."
-                return response, False
-            if team == "LA Clippers" and "last" in query.lower():
-                response = "LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: Nuggets win 4-3."
-                return response, False
-            if team == "New York Knicks" and "next" in query.lower():
-                response = "New York Knicks won the series against Detroit Pistons on 2025-05-01, 4-2. No next game scheduled."
-                return response, False
-            if team == "Boston Celtics" and "last" in query.lower():
-                response = "Boston Celtics won vs. Orlando Magic on 2025-04-29, score 120-89. Series: Celtics lead 3-2."
-                return response, False
-            if team == "Denver Nuggets" and "last" in query.lower():
-                response = "Denver Nuggets won vs. LA Clippers on 2025-05-03, Game 7. Series: Nuggets win 4-3."
-                return response, False
-            if team == "Golden State Warriors" and "last" in query.lower():
-                response = "Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
-                return response, False
+    if user_teams:
+        team = user_teams[0]
+        if team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics", "Denver Nuggets", "Golden State Warriors", "Minnesota Timberwolves", "Indiana Pacers", "Cleveland Cavaliers"]:
+            if "eliminated" in grok_response.lower() or "no future games" in grok_response.lower():
+                logger.warning(f"DeepSearch incorrectly reported {team} eliminated: {grok_response}")
+                if team == "Los Angeles Lakers" and "next" in query.lower():
+                    response = "Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: Timberwolves lead 3-1."
+                    return response, False
+                if team == "Miami Heat" and "last" in query.lower():
+                    response = "Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: Cavaliers win 4-0."
+                    return response, False
+                if team == "LA Clippers" and "last" in query.lower():
+                    response = "LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: Nuggets win 4-3."
+                    return response, False
+                if team == "New York Knicks" and "next" in query.lower():
+                    response = "New York Knicks play Boston Celtics on 2025-05-10, TBD (Game 3). Series: Knicks lead 1-0."
+                    return response, False
+                if team == "Boston Celtics" and "last" in query.lower():
+                    response = "Boston Celtics lost to New York Knicks on 2025-05-05, score 105-108 (OT). Series: Knicks lead 1-0."
+                    return response, False
+                if team == "Denver Nuggets" and "last" in query.lower():
+                    response = "Denver Nuggets won vs. LA Clippers on 2025-05-03, 120-101, Game 7. Series: Nuggets win 4-3."
+                    return response, False
+                if team == "Golden State Warriors" and "last" in query.lower():
+                    response = "Warriors lost 101-97 to Rockets in Game 6 on 2025-05-02, forcing Game 7 on May 4, 2025."
+                    return response, False
+                if team == "Minnesota Timberwolves" and "next" in query.lower():
+                    response = "The Timberwolves’ next game is Game 7, May 6, 2025, TBD, vs. Lakers (Timberwolves lead 3-1), if necessary."
+                    return response, False
+                if team == "Indiana Pacers" and "next" in query.lower():
+                    response = "Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 1-0."
+                    return response, False
+                if team == "Cleveland Cavaliers" and "next" in query.lower():
+                    response = "Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 1-0."
+                    return response, False
 
     return grok_response, is_grok_search
 
 # Get betting odds for specific teams or today's games
-def get_game_odds(query):
-    normalized_teams = [normalize_team_name(query) for query in query.split() if normalize_team_name(query)]
+def get_bets(query, grok_response):
+    safe_response = (grok_response or "").encode('ascii', 'ignore').decode('ascii')
+    user_teams = [normalize_team_name(word) for word in (query + " " + safe_response).split() if normalize_team_name(word)]
     current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
     all_odds = fetch_betting_odds(current_date)
-    logger.debug(f"Getting odds for query with teams: {normalized_teams}")
-    if normalized_teams and any(word in query.lower() for word in ["game", "next", "last", "schedule", "playoffs"]):
-        filtered = [game for game in all_odds if any(team in game['game'] for team in normalized_teams)]
+    logger.debug(f"Getting odds for query with teams: {user_teams}")
+    
+    bets = []
+    if user_teams and any(word in query.lower() for word in ["game", "next", "last", "schedule", "playoffs"]):
+        filtered = [game for game in all_odds if any(team in game['game'] for team in user_teams)]
         if filtered:
             if "next" in query.lower():
                 filtered = [game for game in filtered if game['date'] >= current_date]
             elif "last" in query.lower():
                 filtered = [game for game in filtered if game['date'] < current_date]
-            logger.debug(f"Filtered odds for teams: {json.dumps(filtered, indent=2)}")
-            return filtered[:3]
+            bets.extend(filtered[:3])
     if any(word in query.lower() for word in ["today", "tonight", "games", "playoffs"]):
-        filtered = [game for game in all_odds if game['date'] == current_date]
-        if filtered:
-            logger.debug(f"Filtered odds for today: {json.dumps(filtered, indent=2)}")
-            return filtered[:3]
-    logger.debug("No relevant odds found")
-    return []
-
-# Generate bets for query responses
-def get_bets(query, grok_response):
-    safe_response = (grok_response or "").encode('ascii', 'ignore').decode('ascii')
-    user_teams = [normalize_team_name(word) for word in (query + " " + safe_response).split() if normalize_team_name(word)]
-    odds = get_game_odds(query)
-    bets = []
-    for game in odds:
+        filtered = [game for game in all_odds]
+        bets.extend(filtered[:3])
+    
+    # Remove duplicates and ensure both teams' odds
+    odds_dict = {}
+    for game in bets:
+        game_key = f"{game['game']}_{game['date']}_{game['team']}"
+        odds_dict[game_key] = game
+    unique_bets = list(odds_dict.values())
+    
+    formatted_bets = []
+    for bet in unique_bets:
         try:
             bet_info = {
-                "game": game['game'],
-                "date": game.get('date', 'N/A'),
-                "moneyline": {game['team']: game['odds']},
-                "teams": game['game'].split(' vs. ')
+                "game": bet['game'],
+                "date": bet.get('date', 'N/A'),
+                "moneyline": {bet['team']: bet['odds']},
+                "teams": bet['game'].split(' vs. ')
             }
-            bets.append(bet_info)
+            formatted_bets.append(bet_info)
         except Exception as e:
-            logger.debug(f"Skipping invalid bet data: {str(e)}, game: {game}")
+            logger.debug(f"Skipping invalid bet data: {str(e)}, game: {bet}")
             continue
-    logger.debug(f"Bets generated: {json.dumps(bets, indent=2)}")
-    return bets
+    
+    logger.debug(f"Bets generated: {json.dumps(formatted_bets, indent=2)}")
+    return formatted_bets
 
 # Run Flask app locally for debugging
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
-    # lat update 5/5/2025 6:00PM
+    #app8 new copy 05068:00AM PDT
