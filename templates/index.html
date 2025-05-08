@@ -20,6 +20,17 @@
                 </form>
             </div>
 
+            <h2 class="h3 fw-bold mb-3">Popular Moneyline Bets</h2>
+            {% for bet in popular_bets %}
+                <div class="card p-3 mb-2">
+                    <p class="fw-semibold mb-1">{{ bet.game }}, {{ bet.date | format_date }}</p>
+                    {% for team, odds in bet.moneyline.items() %}
+                        <p class="mb-1">{{ team }}: {{ odds }}</p>
+                    {% endfor %}
+                    <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link p-0">Place Bet</a>
+                </div>
+            {% endfor %}
+
             <h2 class="h3 fw-bold mb-3">Betting Suggestions</h2>
             {% for bet in initial_bets %}
                 <div class="card p-3 mb-2">

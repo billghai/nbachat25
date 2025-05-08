@@ -1,4 +1,4 @@
-    import logging
+import logging
     import os
     from flask import Flask, render_template, request, jsonify, session
     from datetime import datetime, timedelta
@@ -34,6 +34,9 @@
     logger.debug(f"Using XAI_API_KEY: {XAI_API_KEY[:10]}...")
     logger.debug(f"Using ODDS_API_KEY: {ODDS_API_KEY[:10]}...")
 
+    # File to store popular bets
+    POPULAR_BETS_FILE = 'popular_bets.json'
+
     # Team name mapping for normalizing user queries (e.g., "lakers" -> "Los Angeles Lakers")
     TEAM_NAME_MAPPING = {
         "lakers": "Los Angeles Lakers",
@@ -52,7 +55,7 @@
         "dubs": "Golden State Warriors",
         "rockets": "Houston Rockets",
         "thunder": "Oklahoma City Thunder",
-        "grizzlies": "Memphis Grizzlies",
+        "grizzlies": "ギズリーズ",
         "nuggets": "Denver Nuggets",
         "clippers": "LA Clippers",
         "pacers": "Indiana Pacers",
@@ -182,7 +185,7 @@
             return next_saturday.strftime("%Y-%m-%d")
         elif "today" in query_lower or "tonight" in query_lower:
             return current_date.strftime("%Y-%m-%d")
-        return "2025-05-06"  # Default to May 6 for non-date-specific queries
+        return current_date.strftime("%Y-%m-%d")  # Default to current date
 
     # Fetch betting odds from Odds API for a specific date
     def fetch_betting_odds(date_str):
@@ -228,6 +231,79 @@
             logger.error(f"Failed to fetch betting odds for {date_str}: {str(e)}")
             return []
 
+    # Update popular bets (called by cron job)
+    def update_popular_bets():
+        pdt = pytz.timezone('US/Pacific')
+        current_date = datetime.now(pdt).strftime("%Y-%m-%d")
+        all_odds = fetch_betting_odds(current_date)
+        
+        if not all_odds:
+            logger.debug(f"No odds available for {current_date}, using fallback")
+            all_odds = [
+                {
+                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                    'date': '2025-05-06',
+                    'team': 'Cleveland Cavaliers',
+                    'odds': '-150'
+                },
+                {
+                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                    'date': '2025-05-06',
+                    'team': 'Indiana Pacers',
+                    'odds': '+130'
+                },
+                {
+                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                    'date': '2025-05-06',
+                    'team': 'Minnesota Timberwolves',
+                    'odds': '+200'
+                },
+                {
+                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                    'date': '2025-05-06',
+                    'team': 'Golden State Warriors',
+                    'odds': '-240'
+                }
+            ]
+        
+        # Sort by odds (lower negative odds = more popular)
+        sorted_odds = sorted(all_odds, key=lambda x: int(x['odds']) if x['odds'].startswith('-') else -int(x['odds']))
+        popular_odds = sorted_odds[:4]
+        
+        # Save to JSON file
+        popular_bets = {
+            'last_updated': datetime.now(pdt).strftime("%Y-%m-%d %H:%M:%S %Z"),
+            'bets': popular_odds
+        }
+        try:
+            with open(POPULAR_BETS_FILE, 'w') as f:
+                json.dump(popular_bets, f, indent=2)
+            logger.debug(f"Updated popular bets: {json.dumps(popular_bets, indent=2)}")
+        except Exception as e:
+            logger.error(f"Failed to save popular bets: {str(e)}")
+        
+        return popular_odds
+
+    # Load popular bets from file
+    def load_popular_bets():
+        try:
+            with open(POPULAR_BETS_FILE, 'r') as f:
+                popular_bets = json.load(f)
+            return popular_bets.get('bets', [])
+        except FileNotFoundError:
+            logger.debug(f"{POPULAR_BETS_FILE} not found, initializing popular bets")
+            return update_popular_bets()
+
+    # Route for cron job to update popular bets
+    @app.route("/update_popular_bets", methods=["POST"])
+    def cron_update_popular_bets():
+        try:
+            update_popular_bets()
+            return jsonify({"status": "success", "message": "Popular bets updated"}), 200
+        except Exception as e:
+            logger.error(f"Error updating popular bets: {str(e)}")
+            return jsonify({"status": "error", "message": str(e)}), 500
+
     # Store initial bets globally
     INITIAL_BETS = []
 
@@ -243,9 +319,9 @@
             app_filename = "app8.py"  # Hardcode for clarity
             logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}, app_filename: {app_filename}")
 
-            # Fetch betting odds for May 6, 2025 (default for index)
-            all_odds = fetch_betting_odds("2025-05-06")
-            logger.debug(f"Fetched odds for 2025-05-06: {json.dumps(all_odds, indent=2)}")
+            # Fetch betting odds for current date
+            all_odds = fetch_betting_odds(current_date)
+            logger.debug(f"Fetched odds for {current_date}: {json.dumps(all_odds, indent=2)}")
             if not all_odds:
                 # Fallback odds for May 6, 2025
                 all_odds = [
@@ -274,7 +350,7 @@
                         'odds': '-240'
                     }
                 ]
-                logger.debug("Using fallback odds for May 6, 2025")
+                logger.debug(f"Using fallback odds for {current_date}")
             
             # Include all odds, bypassing strict date filter
             filtered_odds = all_odds
@@ -304,9 +380,26 @@
                     continue
             logger.debug(f"Initial bets: {json.dumps(INITIAL_BETS, indent=2)}")
 
+            # Load popular bets
+            popular_bets = load_popular_bets()
+            popular_bets_formatted = []
+            for bet in popular_bets:
+                try:
+                    bet_info = {
+                        "game": bet['game'],
+                        "date": bet.get('date', 'N/A'),
+                        "moneyline": {bet['team']: bet['odds']},
+                        "teams": bet['game'].split(' vs. ')
+                    }
+                    popular_bets_formatted.append(bet_info)
+                except Exception as e:
+                    logger.debug(f"Skipping invalid popular bet data: {str(e)}, bet: {bet}")
+                    continue
+
             return render_template(
                 "index.html",
                 initial_bets=INITIAL_BETS,
+                popular_bets=popular_bets_formatted,
                 current_datetime=current_datetime,
                 betting_site_url=BETTING_SITE_URL,
                 app_filename=app_filename
