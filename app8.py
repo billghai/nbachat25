@@ -127,6 +127,7 @@
             "Indiana Pacers vs Milwaukee Bucks 2025-05-02": "Pacers win 4-1",
             "Boston Celtics vs Orlando Magic 2025-05-01": "Celtics win 4-1",
             "Oklahoma City Thunder vs Memphis Grizzlies 2025-05-01": "Thunder win 4-0",
+            "Oklahoma City Thunder vs Denver Nuggets 2025-05-05": "Series tied 0-0",
         }
 
     # Jinja2 filter to format dates in templates (e.g., "2025-05-04" -> "May 04, 2025")
@@ -159,6 +160,29 @@
                 return TEAM_NAME_MAPPING[match[0]]
         logger.debug(f"No team match for query: {query}")
         return None
+
+    # Parse date from query (e.g., "next Friday", "weekend")
+    def parse_query_date(query):
+        pdt = pytz.timezone('US/Pacific')
+        current_date = datetime.now(pdt)
+        query_lower = query.lower()
+
+        if "next friday" in query_lower:
+            days_until_friday = (4 - current_date.weekday()) % 7
+            if days_until_friday == 0:
+                days_until_friday = 7
+            next_friday = current_date + timedelta(days=days_until_friday)
+            return next_friday.strftime("%Y-%m-%d")
+        elif "weekend" in query_lower:
+            # Return Saturday of the next weekend
+            days_to_saturday = (5 - current_date.weekday()) % 7
+            if days_to_saturday == 0:
+                days_to_saturday = 7
+            next_saturday = current_date + timedelta(days=days_to_saturday)
+            return next_saturday.strftime("%Y-%m-%d")
+        elif "today" in query_lower or "tonight" in query_lower:
+            return current_date.strftime("%Y-%m-%d")
+        return "2025-05-06"  # Default to May 6 for non-date-specific queries
 
     # Fetch betting odds from Odds API for a specific date
     def fetch_betting_odds(date_str):
@@ -201,7 +225,7 @@
             logger.debug(f"Fetched {len(bets)} betting odds for {date_str}")
             return bets
         except Exception as e:
-            logger.error(f"Failed to fetch betting odds: {str(e)}")
+            logger.error(f"Failed to fetch betting odds for {date_str}: {str(e)}")
             return []
 
     # Store initial bets globally
@@ -219,7 +243,7 @@
             app_filename = "app8.py"  # Hardcode for clarity
             logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}, app_filename: {app_filename}")
 
-            # Fetch betting odds for May 6, 2025
+            # Fetch betting odds for May 6, 2025 (default for index)
             all_odds = fetch_betting_odds("2025-05-06")
             logger.debug(f"Fetched odds for 2025-05-06: {json.dumps(all_odds, indent=2)}")
             if not all_odds:
@@ -374,8 +398,10 @@
             f"For player stats (e.g., LeBron James' highest scoring game), use verified NBA data (e.g., LeBron's career-high is 61 points on 2014-03-03 vs. Charlotte). "
             f"For NBA Finals predictions, use current playoff performance and betting odds (Thunder +150, Celtics +190). "
             f"For queries about 'next Friday' games, use May 9, 2025, and include: Pacers vs. Cavaliers (Game 3, 7:30 PM PDT, ESPN; Pacers lead 2-0); "
-            f"Thunder vs. Nuggets (Game 3, 10:00 PM PDT, ESPN; Series tied 0-0). Exclude games from other dates in the response. "
-            f"If no data is found or teams are eliminated, provide last game details or confirm elimination with series result. Max 600 chars."
+            f"Thunder vs. Nuggets (Game 3, 10:00 PM PDT, ESPN; Series tied 0-0). "
+            f"For 'weekend' games, use May 10-11, 2025, and include: May 10: Knicks vs. Celtics (Game 3, 3:30 PM PDT, ABC), Timberwolves vs. Warriors (Game 3, 8:30 PM PDT, ABC); "
+            f"May 11: Pacers vs. Cavaliers (Game 4, 8:00 PM PDT, TNT), Thunder vs. Nuggets (Game 4, 3:30 PM PDT, ABC). "
+            f"Exclude games from other dates in the response unless explicitly requested. Max 600 chars."
         )
         # API payload with prompt and query
         payload = {
@@ -454,10 +480,10 @@
                         response = f"Boston Celtics play New York Knicks on 2025-05-07, 7:00 PM PDT (Game 2). Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Denver Nuggets":
-                    series_key = "LA Clippers vs Denver Nuggets 2025-05-03"
+                    series_key = "Oklahoma City Thunder vs Denver Nuggets 2025-05-05"
                     if series_key in KNOWN_SERIES:
                         logger.debug(f"Using known series for Nuggets: {series_key}")
-                        response = f"Denver Nuggets play Oklahoma City Thunder on 2025-05-09, 10:00 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]} ended."
+                        response = f"Denver Nuggets play Oklahoma City Thunder on 2025-05-09, 10:00 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Minnesota Timberwolves":
                     series_key = "Golden State Warriors vs Minnesota Timberwolves 2025-05-06"
@@ -475,13 +501,13 @@
                     series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
                     if series_key in KNOWN_SERIES:
                         logger.debug(f"Using known series for Pacers: {series_key}")
-                        response = f"Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 2-0."
+                        response = f"Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Cleveland Cavaliers":
                     series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
                     if series_key in KNOWN_SERIES:
                         logger.debug(f"Using known series for Cavaliers: {series_key}")
-                        response = f"Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 2-0."
+                        response = f"Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "LA Clippers":
                     series_key = "LA Clippers vs Denver Nuggets 2025-05-03"
@@ -542,12 +568,12 @@
                 if team == "Indiana Pacers":
                     series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
                     if series_key in KNOWN_SERIES:
-                        response = f"Indiana Pacers won vs. Cleveland Cavaliers on 2025-05-04, score 121-112. Series: Pacers lead 2-0."
+                        response = f"Indiana Pacers won vs. Cleveland Cavaliers on 2025-05-04, score 121-112. Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Cleveland Cavaliers":
                     series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"
                     if series_key in KNOWN_SERIES:
-                        response = f"Cleveland Cavaliers lost to Indiana Pacers on 2025-05-04, score 112-121. Series: Pacers lead 2-0."
+                        response = f"Cleveland Cavaliers lost to Indiana Pacers on 2025-05-04, score 112-121. Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Orlando Magic":
                     series_key = "Boston Celtics vs Orlando Magic 2025-05-01"
@@ -566,13 +592,13 @@
                 if "eliminated" in grok_response.lower() or "no future games" in grok_response.lower():
                     logger.warning(f"DeepSearch incorrectly reported {team} eliminated: {grok_response}")
                     if team == "Los Angeles Lakers" and "next" in query.lower():
-                        response = "Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: Timberwolves lead 3-1."
+                        response = f"Los Angeles Lakers may play Minnesota Timberwolves on 2025-05-06, TBD (Game 7, if necessary). Series: {KNOWN_SERIES.get('Los Angeles Lakers vs Minnesota Timberwolves 2025-04-30', 'Timberwolves lead 3-1')}."
                         return response, False
                     if team == "Miami Heat" and "last" in query.lower():
-                        response = "Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: Cavaliers win 4-0."
+                        response = f"Miami Heat lost to Cleveland Cavaliers on 2025-04-28, score 83-138. Series: {KNOWN_SERIES.get('Miami Heat vs Cleveland Cavaliers 2025-04-28', 'Cavaliers win 4-0')}."
                         return response, False
                     if team == "LA Clippers" and "last" in query.lower():
-                        response = "LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: Nuggets win 4-3."
+                        response = f"LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: {KNOWN_SERIES.get('LA Clippers vs Denver Nuggets 2025-05-03', 'Nuggets win 4-3')}."
                         return response, False
                     if team == "New York Knicks" and "next" in query.lower():
                         response = f"New York Knicks play Boston Celtics on 2025-05-07, 7:00 PM PDT (Game 2). Series: {KNOWN_SERIES.get('New York Knicks vs Boston Celtics 2025-05-05', 'Knicks lead 1-0')}."
@@ -601,14 +627,102 @@
 
         return grok_response, is_grok_search
 
-    # Get betting odds for specific teams or today's games
+    # Get betting odds for specific teams or queried date
     def get_bets(query, grok_response):
         safe_response = (grok_response or "").encode('ascii', 'ignore').decode('ascii')
         user_teams = [normalize_team_name(word) for word in (query + " " + safe_response).split() if normalize_team_name(word)]
-        current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
-        all_odds = fetch_betting_odds("2025-05-06")  # Hardcode to May 6, 2025
-        logger.debug(f"Getting odds for query with teams: {user_teams}")
-        
+        query_date = parse_query_date(query)
+        logger.debug(f"Parsed query date: {query_date} for query: {query}")
+
+        all_odds = fetch_betting_odds(query_date)
+        logger.debug(f"Fetched odds for {query_date}: {json.dumps(all_odds, indent=2)}")
+        if not all_odds:
+            # Fallback odds based on query date
+            if query_date == "2025-05-06":
+                all_odds = [
+                    {
+                        'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                        'date': '2025-05-06',
+                        'team': 'Cleveland Cavaliers',
+                        'odds': '-150'
+                    },
+                    {
+                        'game': 'Cleveland Cavaliers vs. Indiana Pacers',
+                        'date': '2025-05-06',
+                        'team': 'Indiana Pacers',
+                        'odds': '+130'
+                    },
+                    {
+                        'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                        'date': '2025-05-06',
+                        'team': 'Minnesota Timberwolves',
+                        'odds': '+200'
+                    },
+                    {
+                        'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                        'date': '2025-05-06',
+                        'team': 'Golden State Warriors',
+                        'odds': '-240'
+                    }
+                ]
+            elif query_date == "2025-05-09":
+                all_odds = [
+                    {
+                        'game': 'Indiana Pacers vs. Cleveland Cavaliers',
+                        'date': '2025-05-09',
+                        'team': 'Indiana Pacers',
+                        'odds': '+140'
+                    },
+                    {
+                        'game': 'Indiana Pacers vs. Cleveland Cavaliers',
+                        'date': '2025-05-09',
+                        'team': 'Cleveland Cavaliers',
+                        'odds': '-160'
+                    },
+                    {
+                        'game': 'Oklahoma City Thunder vs. Denver Nuggets',
+                        'date': '2025-05-09',
+                        'team': 'Oklahoma City Thunder',
+                        'odds': '+180'
+                    },
+                    {
+                        'game': 'Oklahoma City Thunder vs. Denver Nuggets',
+                        'date': '2025-05-09',
+                        'team': 'Denver Nuggets',
+                        'odds': '-200'
+                    }
+                ]
+            elif query_date == "2025-05-10":
+                all_odds = [
+                    {
+                        'game': 'New York Knicks vs. Boston Celtics',
+                        'date': '2025-05-10',
+                        'team': 'New York Knicks',
+                        'odds': '+250'
+                    },
+                    {
+                        'game': 'New York Knicks vs. Boston Celtics',
+                        'date': '2025-05-10',
+                        'team': 'Boston Celtics',
+                        'odds': '-300'
+                    },
+                    {
+                        'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                        'date': '2025-05-10',
+                        'team': 'Minnesota Timberwolves',
+                        'odds': '+220'
+                    },
+                    {
+                        'game': 'Minnesota Timberwolves vs. Golden State Warriors',
+                        'date': '2025-05-10',
+                        'team': 'Golden State Warriors',
+                        'odds': '-260'
+                    }
+                ]
+            else:
+                all_odds = []
+            logger.debug(f"Using fallback odds for {query_date}")
+
         bets = []
         if user_teams and any(word in query.lower() for word in ["game", "next", "last", "schedule", "playoffs"]):
             filtered = [game for game in all_odds if any(team in game['game'] for team in user_teams)]
@@ -618,17 +732,17 @@
                 elif "last" in query.lower():
                     filtered = [game for game in filtered if game['date'] < current_date]
                 bets.extend(filtered[:3])
-        if any(word in query.lower() for word in ["today", "tonight", "games", "playoffs"]):
+        if any(word in query.lower() for word in ["today", "tonight", "games", "playoffs", "weekend", "friday"]):
             filtered = [game for game in all_odds]
             bets.extend(filtered[:3])
-        
+
         # Remove duplicates and ensure both teams' odds
         odds_dict = {}
         for game in bets:
             game_key = f"{game['game']}_{game['date']}_{game['team']}"
             odds_dict[game_key] = game
         unique_bets = list(odds_dict.values())
-        
+
         formatted_bets = []
         for bet in unique_bets:
             try:
@@ -642,11 +756,10 @@
             except Exception as e:
                 logger.debug(f"Skipping invalid bet data: {str(e)}, game: {bet}")
                 continue
-        
-        logger.debug(f"Bets generated: {json.dumps(formatted_bets, indent=2)}")
+
+        logger.debug(f"Bets generated for {query_date}: {json.dumps(formatted_bets, indent=2)}")
         return formatted_bets
 
     # Run Flask app locally for debugging
     if __name__ == "__main__":
         app.run(host='127.0.0.1', port=5000, debug=True)
-        
