@@ -1,4 +1,4 @@
-    document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     const chatForm = document.getElementById('chat-form');
     const userInput = document.getElementById('user-input');
     const chatMessages = document.getElementById('chat-messages');
@@ -28,12 +28,10 @@
             grokDiv.innerHTML = `<strong>Grok:</strong> ${data.grok}`;
             chatMessages.appendChild(grokDiv);
 
-            // Add betting suggestions only for explicit betting/game queries
+            // Add betting suggestions only for explicit betting/odds queries
             if (data.bets && data.bets.length > 0 && 
                 (message.toLowerCase().includes('bet') || 
-                 message.toLowerCase().includes('odds') || 
-                 message.toLowerCase().includes('games') || 
-                 message.toLowerCase().includes('schedule'))) {
+                 message.toLowerCase().includes('odds'))) {
                 data.bets.forEach(bet => {
                     const betDiv = document.createElement('div');
                     betDiv.className = 'mb-2 text-muted';

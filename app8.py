@@ -297,7 +297,7 @@
         logger.debug(f"Handling request to /chat with method: {request.method}")
         if request.method == "GET":
             return jsonify({
-                "message": "This endpoint requires a POST request with JSON payload {'message': 'your query'}. Example: curl -X POST -H 'Content-Type: application/json' -d '{\"0070.0.1' http://127.0.0.1:5000/chat"
+                "message": "This endpoint requires a POST request with JSON payload {'message': 'your query'}. Example: curl -X POST -H 'Content-Type: application/json' -d '{\"message\": \"When is the next Lakers game?\"}' http://127.0.0.1:5000/chat"
             })
 
         data = request.get_json()
@@ -575,28 +575,28 @@
                         response = "LA Clippers lost to Denver Nuggets on 2025-05-03, Game 7. Series: Nuggets win 4-3."
                         return response, False
                     if team == "New York Knicks" and "next" in query.lower():
-                        response = "New York Knicks play Boston Celtics on 2025-05-07, 7:00 PM PDT (Game 2). Series: Knicks lead 1-0."
+                        response = f"New York Knicks play Boston Celtics on 2025-05-07, 7:00 PM PDT (Game 2). Series: {KNOWN_SERIES.get('New York Knicks vs Boston Celtics 2025-05-05', 'Knicks lead 1-0')}."
                         return response, False
                     if team == "Boston Celtics" and "last" in query.lower():
-                        response = "Boston Celtics lost to New York Knicks on 2025-05-05, score 105-108 (OT). Series: Knicks lead 1-0."
+                        response = f"Boston Celtics lost to New York Knicks on 2025-05-05, score 105-108 (OT). Series: {KNOWN_SERIES.get('New York Knicks vs Boston Celtics 2025-05-05', 'Knicks lead 1-0')}."
                         return response, False
                     if team == "Denver Nuggets" and "last" in query.lower():
-                        response = "Denver Nuggets won vs. LA Clippers on 2025-05-03, 120-101, Game 7. Series: Nuggets win 4-3."
+                        response = f"Denver Nuggets won vs. LA Clippers on 2025-05-03, 120-101, Game 7. Series: {KNOWN_SERIES.get('LA Clippers vs Denver Nuggets 2025-05-03', 'Nuggets win 4-3')}."
                         return response, False
                     if team == "Golden State Warriors" and "last" in query.lower():
-                        response = "Warriors won vs. Rockets 103-89 in Game 7 on 2025-05-04, series ended. Series: Warriors win 4-3."
+                        response = f"Warriors won vs. Rockets 103-89 in Game 7 on 2025-05-04, series ended. Series: {KNOWN_SERIES.get('Golden State Warriors vs Houston Rockets 2025-05-04', 'Warriors win 4-3')}."
                         return response, False
                     if team == "Minnesota Timberwolves" and "next" in query.lower():
-                        response = "The Timberwolves’ next game is Game 2 vs. Warriors on 2025-05-07, 9:30 PM PDT. Series: Series tied 0-0."
+                        response = f"The Timberwolves’ next game is Game 2 vs. Warriors on 2025-05-07, 9:30 PM PDT. Series: {KNOWN_SERIES.get('Golden State Warriors vs Minnesota Timberwolves 2025-05-06', 'Series tied 0-0')}."
                         return response, False
                     if team == "Indiana Pacers" and "next" in query.lower():
-                        response = "Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 2-0."
+                        response = f"Indiana Pacers play Cleveland Cavaliers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES.get('Indiana Pacers vs Cleveland Cavaliers 2025-05-04', 'Pacers lead 2-0')}."
                         return response, False
                     if team == "Cleveland Cavaliers" and "next" in query.lower():
-                        response = "Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: Pacers lead 2-0."
+                        response = f"Cleveland Cavaliers play Indiana Pacers on 2025-05-09, 7:30 PM PDT (Game 3). Series: {KNOWN_SERIES.get('Indiana Pacers vs Cleveland Cavaliers 2025-05-04', 'Pacers lead 2-0')}."
                         return response, False
                     if team == "Orlando Magic" and "last" in query.lower():
-                        response = "Orlando Magic lost to Boston Celtics on 2025-05-01, score 89-120. Series: Celtics win 4-1."
+                        response = f"Orlando Magic lost to Boston Celtics on 2025-05-01, score 89-120. Series: {KNOWN_SERIES.get('Boston Celtics vs Orlando Magic 2025-05-01', 'Celtics win 4-1')}."
                         return response, False
 
         return grok_response, is_grok_search
@@ -649,4 +649,4 @@
     # Run Flask app locally for debugging
     if __name__ == "__main__":
         app.run(host='127.0.0.1', port=5000, debug=True)
- 
+        
