@@ -1,4 +1,4 @@
-import logging
+    import logging
     import os
     from flask import Flask, render_template, request, jsonify, session
     from datetime import datetime, timedelta
@@ -55,7 +55,7 @@ import logging
         "dubs": "Golden State Warriors",
         "rockets": "Houston Rockets",
         "thunder": "Oklahoma City Thunder",
-        "grizzlies": "ギズリーズ",
+        "grizzlies": "Memphis Grizzlies",
         "nuggets": "Denver Nuggets",
         "clippers": "LA Clippers",
         "pacers": "Indiana Pacers",
