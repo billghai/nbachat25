@@ -8,20 +8,44 @@ body {
     padding: 1rem;
 }
 
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
 h1 {
     font-size: 12pt;
     font-weight: bold;
-    margin-bottom: 0.5rem;
+    margin: 0;
+}
+
+.current-time {
+    font-size: 0.8rem;
+    margin: 0;
 }
 
 h2 {
     font-size: 1rem;
     font-weight: bold;
-    margin-bottom: 0.5rem;
+    margin: 0;
 }
 
 .text-muted {
     font-size: 0.8rem;
+}
+
+.bets-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.last-updated {
+    font-size: 0.75rem;
+    margin: 0;
 }
 
 #chat-container, .betting-container {
@@ -77,10 +101,6 @@ h2 {
     padding: 0;
 }
 
-.last-updated {
-    font-size: 0.75rem;
-}
-
 @media (min-width: 768px) {
     body {
         font-size: 16px;
@@ -98,6 +118,10 @@ h2 {
         font-size: 1.2rem;
     }
 
+    .current-time, .last-updated {
+        font-size: 0.85rem;
+    }
+
     #chat-container, .betting-container {
         padding: 1rem;
         margin-bottom: 1rem;
@@ -105,9 +129,5 @@ h2 {
 
     .bets-list, .odds, .place-bet {
         font-size: 1rem;
-    }
-
-    .last-updated {
-        font-size: 0.85rem;
     }
 }

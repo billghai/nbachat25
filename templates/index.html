@@ -9,8 +9,10 @@
     </head>
     <body class="bg-light">
         <div class="container py-2">
-            <h1 class="mb-3">SlamDunkChat 🏀</h1>
-            <p class="text-muted mb-3">Current Time: {{ current_datetime }}</p>
+            <div class="header-container">
+                <h1>SlamDunkChat 🏀</h1>
+                <p class="text-muted current-time">Current Time: {{ current_datetime }}</p>
+            </div>
             
             <div id="chat-container" class="card p-3 mb-3">
                 <div id="chat-messages" class="mb-3" style="height: 12rem; overflow-y: auto;"></div>
@@ -21,8 +23,10 @@
             </div>
 
             <div class="betting-container card p-3">
-                <h2 class="h5 fw-bold mb-2">Betting Suggestions</h2>
-                <p class="text-muted mb-2 last-updated">Last Updated: {{ last_bets_update }}</p>
+                <div class="bets-header">
+                    <h2 class="h5 fw-bold">Betting Suggestions</h2>
+                    <p class="text-muted last-updated">Last Updated: {{ last_bets_update }}</p>
+                </div>
                 <div class="bets-list">
                     {% for bet in popular_bets %}
                         <div class="bet-item mb-2">

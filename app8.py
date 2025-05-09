@@ -102,7 +102,7 @@ TEAM_ID_TO_NAME = {
     1610612765: "Detroit Pistons",
 }
 
-# Known series statuses for quick query responses (updated for May 8, 2025)
+# Known series statuses for quick query responses (updated for May 9, 2025)
 KNOWN_SERIES = {
     "Los Angeles Lakers vs Minnesota Timberwolves 2025-04-30": "Timberwolves lead 3-1",
     "Minnesota Timberwolves vs Los Angeles Lakers 2025-05-02": "Timberwolves lead 3-1",
@@ -182,7 +182,7 @@ def parse_query_date(query):
         return current_date.strftime("%Y-%m-%d")
     return current_date.strftime("%Y-%m-%d")  # Default to current date
 
-# Fetch betting odds from Odds API for a specific date
+# Fetch betting odds from Odds API for a specific date, deduplicating by best odds
 def fetch_betting_odds(date_str):
     try:
         # Use PDT timezone for game dates
@@ -197,33 +197,65 @@ def fetch_betting_odds(date_str):
             'markets': 'h2h',
             'date': timestamp
         }
+        logger.debug(f"Fetching odds from API for {date_str} with timestamp {timestamp}")
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
         games = response.json()
         
-        bets = []
+        # Deduplicate odds by selecting best odds per team per game
+        bets_dict = {}
         for game in games:
             home_team = game['home_team']
             away_team = game['away_team']
             commence_time = game.get('commence_time', '')[:10]
             if commence_time != date_str:  # Strict date match
+                logger.debug(f"Skipping game with commence_time {commence_time} != {date_str}")
                 continue
+            game_key = f"{home_team} vs. {away_team}_{commence_time}"
+            if game_key not in bets_dict:
+                bets_dict[game_key] = {}
+            
             for bookmaker in game.get('bookmakers', []):
                 for market in bookmaker.get('markets', []):
                     if market['key'] == 'h2h':
                         for outcome in market['outcomes']:
+                            team = outcome['name']
                             price = outcome['price']
                             odds = f"+{int(price * 100)}" if price > 0 else f"{int(price * 100)}"
-                            bets.append({
-                                'game': f"{home_team} vs. {away_team}",
-                                'date': commence_time,
-                                'team': outcome['name'],
-                                'odds': odds
-                            })
-        logger.debug(f"Fetched {len(bets)} betting odds for {date_str}")
+                            if team not in bets_dict[game_key] or (
+                                price > 0 and price > bets_dict[game_key].get(team, {}).get('price', -float('inf')) or
+                                price < 0 and price < bets_dict[game_key].get(team, {}).get('price', float('inf'))
+                            ):
+                                bets_dict[game_key][team] = {
+                                    'game': f"{home_team} vs. {away_team}",
+                                    'date': commence_time,
+                                    'team': team,
+                                    'odds': odds,
+                                    'price': price
+                                }
+        
+        # Convert to list of bets, ensuring unique game-team pairs
+        bets = []
+        seen_games = set()
+        for game_key, teams in bets_dict.items():
+            game_name = game_key.rsplit('_', 1)[0]
+            if game_name not in seen_games:
+                seen_games.add(game_name)
+                for team, bet in teams.items():
+                    bets.append({
+                        'game': bet['game'],
+                        'date': bet['date'],
+                        'team': bet['team'],
+                        'odds': bet['odds']
+                    })
+        
+        logger.debug(f"Fetched {len(bets)} deduplicated betting odds for {date_str}: {json.dumps(bets, indent=2)}")
         return bets
-    except Exception as e:
+    except requests.RequestException as e:
         logger.error(f"Failed to fetch betting odds for {date_str}: {str(e)}")
+        return []
+    except Exception as e:
+        logger.error(f"Unexpected error in fetch_betting_odds for {date_str}: {str(e)}")
         return []
 
 # Update popular bets (called by cron job)
@@ -233,37 +265,41 @@ def update_popular_bets():
     all_odds = fetch_betting_odds(current_date)
     
     if not all_odds:
-        logger.debug(f"No odds available for {current_date}, using fallback")
+        logger.warning(f"No odds available for {current_date}, using fallback")
         all_odds = [
             {
-                'game': 'New York Knicks vs. Boston Celtics',
-                'date': '2025-05-07',
-                'team': 'New York Knicks',
-                'odds': '+120'
+                'game': 'Indiana Pacers vs. Cleveland Cavaliers',
+                'date': '2025-05-09',
+                'team': 'Indiana Pacers',
+                'odds': '+260'
             },
             {
-                'game': 'New York Knicks vs. Boston Celtics',
-                'date': '2025-05-07',
-                'team': 'Boston Celtics',
-                'odds': '-140'
+                'game': 'Indiana Pacers vs. Cleveland Cavaliers',
+                'date': '2025-05-09',
+                'team': 'Cleveland Cavaliers',
+                'odds': '-320'
             },
             {
-                'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                'date': '2025-05-07',
-                'team': 'Minnesota Timberwolves',
-                'odds': '+200'
+                'game': 'Oklahoma City Thunder vs. Denver Nuggets',
+                'date': '2025-05-09',
+                'team': 'Oklahoma City Thunder',
+                'odds': '+180'
             },
             {
-                'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                'date': '2025-05-07',
-                'team': 'Golden State Warriors',
-                'odds': '-240'
+                'game': 'Oklahoma City Thunder vs. Denver Nuggets',
+                'date': '2025-05-09',
+                'team': 'Denver Nuggets',
+                'odds': '-220'
             }
         ]
     
-    # Sort by odds (lower negative odds = more popular)
-    sorted_odds = sorted(all_odds, key=lambda x: int(x['odds']) if x['odds'].startswith('-') else -int(x['odds']))
-    popular_odds = sorted_odds[:4]
+    # Deduplicate and limit to 4 unique bets
+    unique_bets = {}
+    for bet in all_odds:
+        game_key = f"{bet['game']}_{bet['team']}"
+        if game_key not in unique_bets:
+            unique_bets[game_key] = bet
+    popular_odds = list(unique_bets.values())[:4]
     
     # Save to JSON file
     popular_bets = {
@@ -273,9 +309,9 @@ def update_popular_bets():
     try:
         with open(POPULAR_BETS_FILE, 'w') as f:
             json.dump(popular_bets, f, indent=2)
-        logger.debug(f"Updated popular bets: {json.dumps(popular_bets, indent=2)}")
+        logger.debug(f"Updated popular_bets.json with {len(popular_odds)} bets: {json.dumps(popular_bets, indent=2)}")
     except Exception as e:
-        logger.error(f"Failed to save popular bets: {str(e)}")
+        logger.error(f"Failed to save popular bets to {POPULAR_BETS_FILE}: {str(e)}")
     
     return popular_odds
 
@@ -284,35 +320,41 @@ def load_popular_bets():
     try:
         with open(POPULAR_BETS_FILE, 'r') as f:
             popular_bets = json.load(f)
-        return popular_bets.get('bets', []), popular_bets.get('last_updated', 'N/A')
+        bets = popular_bets.get('bets', [])
+        last_updated = popular_bets.get('last_updated', 'N/A')
+        logger.debug(f"Loaded {len(bets)} bets from {POPULAR_BETS_FILE}, last updated: {last_updated}")
+        return bets, last_updated
     except FileNotFoundError:
         logger.debug(f"{POPULAR_BETS_FILE} not found, initializing popular bets")
         odds = update_popular_bets()
         try:
             with open(POPULAR_BETS_FILE, 'r') as f:
                 popular_bets = json.load(f)
-            return odds, popular_bets.get('last_updated', 'N/A')
+            bets = popular_bets.get('bets', [])
+            last_updated = popular_bets.get('last_updated', 'N/A')
+            logger.debug(f"Initialized {len(bets)} bets, last updated: {last_updated}")
+            return bets, last_updated
         except Exception as e:
             logger.error(f"Failed to read popular bets after initialization: {str(e)}")
             return odds, 'N/A'
+    except Exception as e:
+        logger.error(f"Error loading popular bets from {POPULAR_BETS_FILE}: {str(e)}")
+        return [], 'N/A'
 
 # Route for cron job to update popular bets
 @app.route("/update_popular_bets", methods=["POST"])
 def cron_update_popular_bets():
     try:
         update_popular_bets()
+        logger.info("Cron job successfully updated popular bets")
         return jsonify({"status": "success", "message": "Popular bets updated"}), 200
     except Exception as e:
-        logger.error(f"Error updating popular bets: {str(e)}")
+        logger.error(f"Error updating popular bets in cron job: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
-
-# Store initial bets globally
-INITIAL_BETS = []
 
 # Route for rendering the main page (index.html)
 @app.route("/")
 def index():
-    global INITIAL_BETS
     try:
         # Use PDT for current time
         pdt = pytz.timezone('US/Pacific')
@@ -320,86 +362,28 @@ def index():
         current_date = datetime.now(pdt).strftime("%Y-%m-%d")
         logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}")
 
-        # Fetch betting odds for current date
-        all_odds = fetch_betting_odds(current_date)
-        logger.debug(f"Fetched odds for {current_date}: {json.dumps(all_odds, indent=2)}")
-        if not all_odds:
-            # Fallback odds for current date
-            all_odds = [
-                {
-                    'game': 'New York Knicks vs. Boston Celtics',
-                    'date': '2025-05-07',
-                    'team': 'New York Knicks',
-                    'odds': '+120'
-                },
-                {
-                    'game': 'New York Knicks vs. Boston Celtics',
-                    'date': '2025-05-07',
-                    'team': 'Boston Celtics',
-                    'odds': '-140'
-                },
-                {
-                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                    'date': '2025-05-07',
-                    'team': 'Minnesota Timberwolves',
-                    'odds': '+200'
-                },
-                {
-                    'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                    'date': '2025-05-07',
-                    'team': 'Golden State Warriors',
-                    'odds': '-240'
-                }
-            ]
-            logger.debug(f"Using fallback odds for {current_date}")
-        
-        # Include all odds, bypassing strict date filter
-        filtered_odds = all_odds
-        logger.debug(f"Filtered odds: {json.dumps(filtered_odds, indent=2)}")
-
-        # Sort odds by game and team to avoid duplicates
-        odds_dict = {}
-        for game in filtered_odds:
-            game_key = f"{game['game']}_{game['date']}_{game['team']}"
-            odds_dict[game_key] = game
-        odds = list(odds_dict.values())[:4]
-        logger.debug(f"Sorted odds: {json.dumps(odds, indent=2)}")
-
-        # Build INITIAL_BETS for template
-        INITIAL_BETS = []
-        for game in odds:
-            try:
-                bet_info = {
-                    "game": game['game'],
-                    "date": game.get('date', 'N/A'),
-                    "moneyline": {game['team']: game['odds']},
-                    "teams": game['game'].split(' vs. ')
-                }
-                INITIAL_BETS.append(bet_info)
-            except Exception as e:
-                logger.debug(f"Skipping invalid game data: {str(e)}, game: {game}")
-                continue
-        logger.debug(f"Initial bets: {json.dumps(INITIAL_BETS, indent=2)}")
-
         # Load popular bets and last update time
         popular_bets, last_bets_update = load_popular_bets()
         popular_bets_formatted = []
+        seen_games = set()
         for bet in popular_bets:
             try:
-                bet_info = {
-                    "game": bet['game'],
-                    "date": bet.get('date', 'N/A'),
-                    "moneyline": {bet['team']: bet['odds']},
-                    "teams": bet['game'].split(' vs. ')
-                }
-                popular_bets_formatted.append(bet_info)
+                game_key = f"{bet['game']}_{bet['team']}"
+                if game_key not in seen_games:
+                    seen_games.add(game_key)
+                    bet_info = {
+                        "game": bet['game'],
+                        "date": bet.get('date', 'N/A'),
+                        "moneyline": {bet['team']: bet['odds']},
+                        "teams": bet['game'].split(' vs. ')
+                    }
+                    popular_bets_formatted.append(bet_info)
             except Exception as e:
                 logger.debug(f"Skipping invalid popular bet data: {str(e)}, bet: {bet}")
                 continue
 
         return render_template(
             "index.html",
-            initial_bets=INITIAL_BETS,
             popular_bets=popular_bets_formatted,
             last_bets_update=last_bets_update,
             current_datetime=current_datetime,
@@ -424,7 +408,7 @@ def chat():
         return jsonify({
             "user": "",
             "grok": "Invalid request. Please provide a JSON payload with 'message'.",
-            "bets": INITIAL_BETS,
+            "bets": [],
             "is_grok_search": False,
             "response_source": "none"
         }), 400
@@ -452,7 +436,7 @@ def chat():
         return jsonify({
             "user": query,
             "grok": "Sorry, something went wrong. Try again later.",
-            "bets": INITIAL_BETS,
+            "bets": [],
             "is_grok_search": False,
             "response_source": "none"
         }), 500
@@ -469,7 +453,7 @@ def deep_search_query(query):
     pdt = pytz.timezone('US/Pacific')
     current_date = datetime.now(pdt)
     current_date_str = current_date.strftime("%Y-%m-%d")
-    # Calculate težko next Friday (May 9, 2025, for queries on May 8, 2025)
+    # Calculate next Friday (May 9, 2025, for queries on May 9, 2025)
     days_until_friday = (4 - current_date.weekday()) % 7
     if days_until_friday == 0:
         days_until_friday = 7
@@ -480,7 +464,7 @@ def deep_search_query(query):
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date_str}. For past week queries, check games from {current_date_str} back 7 days; exclude future dates. "
         f"For future games, verify dates and times with NBA.com or ESPN in PDT, ensuring no games are missed due to playoff status. "
-        f"For today's games (May 8, 2025), use available data. "
+        f"For today's games (May 9, 2025), use available data. "
         f"For series status, provide current playoff standings (e.g., 'Team A leads 3-1') for the 2024-25 NBA playoffs. "
         f"Known series: Lakers vs. Timberwolves, ended 2025-05-06 (Timberwolves win 4-3); "
         f"Knicks vs. Celtics, Game 2 on 2025-05-07 (Knicks lead 1-0); Pacers vs. Cavaliers, Game 2 on 2025-05-06 (Pacers lead 2-0); "
@@ -490,6 +474,7 @@ def deep_search_query(query):
         f"Pacers vs. Bucks, ended 2025-05-02 (Pacers win 4-1); Thunder vs. Grizzlies, ended 2025-05-01 (Thunder win 4-0); "
         f"Warriors vs. Rockets, ended 2025-05-04 (Warriors win 4-3). "
         f"For player stats (e.g., LeBron James' highest scoring game), use verified NBA data (e.g., LeBron's career-high is 61 points on 2014-03-03 vs. Charlotte). "
+        f"For season scoring leaders (e.g., Knicks), use 2024-25 season data (e.g., Jalen Brunson, 28.7 PPG). "
         f"For NBA Finals predictions, use current playoff performance and betting odds (Thunder +150, Celtics +190). "
         f"For queries about 'next Friday' games, use May 9, 2025, and include: Pacers vs. Cavaliers (Game 3, 7:30 PM PDT, ESPN; Pacers lead 2-0); "
         f"Thunder vs. Nuggets (Game 3, 10:00 PM PDT, ESPN; Series tied 0-0). "
