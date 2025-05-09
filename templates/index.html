@@ -8,42 +8,35 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     </head>
     <body class="bg-light">
-        <div class="container py-4">
-            <h1 class="display-4 fw-bold mb-4">SlamDunkChat 🏀</h1>
-            <p class="text-muted mb-4">Current Time: {{ current_datetime }}</p>
+        <div class="container py-2">
+            <h1 class="mb-3">SlamDunkChat 🏀</h1>
+            <p class="text-muted mb-3">Current Time: {{ current_datetime }}</p>
             
-            <div id="chat-container" class="card p-4 mb-4">
-                <div id="chat-messages" class="mb-4" style="height: 24rem; overflow-y: auto;"></div>
+            <div id="chat-container" class="card p-3 mb-3">
+                <div id="chat-messages" class="mb-3" style="height: 12rem; overflow-y: auto;"></div>
                 <form id="chat-form" class="d-flex">
                     <input type="text" id="user-input" class="form-control me-2" placeholder="Ask about NBA games and players" required>
                     <button type="submit" class="btn btn-primary">Ask 🏀</button>
                 </form>
             </div>
 
-            <div class="betting-container">
-                <h2 class="h3 fw-bold mb-3">Popular Moneyline Bets</h2>
-                {% for bet in popular_bets %}
-                    <div class="card p-3 mb-2">
-                        <p class="fw-semibold mb-1">{{ bet.game }}, {{ bet.date | format_date }}</p>
-                        {% for team, odds in bet.moneyline.items() %}
-                            <p class="mb-1">{{ team }}: {{ odds }}</p>
-                        {% endfor %}
-                        <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link p-0">Place Bet</a>
-                    </div>
-                {% endfor %}
-
-                <h2 class="h3 fw-bold mb-3">Betting Suggestions</h2>
-                <p class="text-muted mb-2">Last Updated: {{ last_bets_update }}</p>
-                {% for bet in initial_bets %}
-                    <div class="card p-3 mb-2">
-                        <p class="fw-semibold mb-1">{{ bet.game }}, {{ bet.date | format_date }}</p>
-                        {% for team, odds in bet.moneyline.items() %}
-                            <p class="mb-1">{{ team }}: {{ odds }}</p>
-                        {% endfor %}
-                        <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link p-0">Place Bet</a>
-                    </div>
-                {% endfor %}
-                <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link">More bets</a>
+            <div class="betting-container card p-3">
+                <h2 class="h5 fw-bold mb-2">Betting Suggestions</h2>
+                <p class="text-muted mb-2 last-updated">Last Updated: {{ last_bets_update }}</p>
+                <div class="bets-list">
+                    {% for bet in popular_bets %}
+                        <div class="bet-item mb-2">
+                            <p class="game-info mb-0">{{ bet.game }}, {{ bet.date | format_date }}</p>
+                            <div class="odds-container">
+                                {% for team, odds in bet.moneyline.items() %}
+                                    <span class="odds">{{ team }}: {{ odds }}</span>
+                                {% endfor %}
+                                <a href="{{ betting_site_url }}" target="_blank" class="place-bet">Place Bet</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link more-bets">More bets</a>
             </div>
         </div>
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
