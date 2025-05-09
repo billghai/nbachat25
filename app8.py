@@ -242,26 +242,26 @@
             logger.debug(f"No odds available for {current_date}, using fallback")
             all_odds = [
                 {
-                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
-                    'date': '2025-05-06',
-                    'team': 'Cleveland Cavaliers',
-                    'odds': '-150'
+                    'game': 'New York Knicks vs. Boston Celtics',
+                    'date': '2025-05-07',
+                    'team': 'New York Knicks',
+                    'odds': '+120'
                 },
                 {
-                    'game': 'Cleveland Cavaliers vs. Indiana Pacers',
-                    'date': '2025-05-06',
-                    'team': 'Indiana Pacers',
-                    'odds': '+130'
+                    'game': 'New York Knicks vs. Boston Celtics',
+                    'date': '2025-05-07',
+                    'team': 'Boston Celtics',
+                    'odds': '-140'
                 },
                 {
                     'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                    'date': '2025-05-06',
+                    'date': '2025-05-07',
                     'team': 'Minnesota Timberwolves',
                     'odds': '+200'
                 },
                 {
                     'game': 'Minnesota Timberwolves vs. Golden State Warriors',
-                    'date': '2025-05-06',
+                    'date': '2025-05-07',
                     'team': 'Golden State Warriors',
                     'odds': '-240'
                 }
@@ -651,7 +651,7 @@
                 if team == "Los Angeles Lakers":
                     series_key = "Los Angeles Lakers vs Minnesota Timberwolves 2025-05-06"
                     if series_key in KNOWN_SERIES:
-                        response = f"Lakers lost to Timberwolves on 2025-05-06, score 104-107, Game 7. Rudy Gobert had 25 points, 19 rebounds, and 5 blocks; LeBron James scored 33. Series: {KNOWN_SERIES[series_key]}."
+                        response = f"The Lakers lost their last game against the Timberwolves on 2025-05-06, score 98-109, Game 7. Anthony Edwards led the Timberwolves with 30 points, and LeBron James had 27 points for the Lakers. Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Golden State Warriors":
                     series_key = "Golden State Warriors vs Houston Rockets 2025-05-04"
@@ -661,7 +661,7 @@
                 if team == "Minnesota Timberwolves":
                     series_key = "Los Angeles Lakers vs Minnesota Timberwolves 2025-05-06"
                     if series_key in KNOWN_SERIES:
-                        response = f"The Timberwolves won their last game against the Lakers on 2025-05-06, score 107-104, Game 7. Series: {KNOWN_SERIES[series_key]}."
+                        response = f"The Timberwolves won their last game against the Lakers on 2025-05-06, score 109-98, Game 7. Series: {KNOWN_SERIES[series_key]}."
                         return response, False
                 if team == "Indiana Pacers":
                     series_key = "Indiana Pacers vs Cleveland Cavaliers 2025-05-04"

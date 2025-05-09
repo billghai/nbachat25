@@ -155,3 +155,10 @@ body {
 .more-bets:hover {
     color: #0056b3;
 }
+body {
+    font-family: 'Eurostile', 'Helvetica Neue Condensed', sans-serif;
+}
+#chat-container, .betting-container {
+    border: 2px solid #f28c38;
+    border-radius: 10px;
+}
