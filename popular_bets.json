@@ -1,17 +1,29 @@
 {
-  "last_updated": "2025-05-09 09:13:46 PDT",
+  "last_updated": "2025-05-09 19:52:44 PDT",
   "bets": [
     {
       "game": "Indiana Pacers vs. Cleveland Cavaliers",
       "date": "2025-05-09",
-      "team": "Cleveland Cavaliers",
-      "odds": "+151"
+      "team": "Indiana Pacers",
+      "odds": "+355"
     },
     {
       "game": "Indiana Pacers vs. Cleveland Cavaliers",
       "date": "2025-05-09",
-      "team": "Indiana Pacers",
-      "odds": "+276"
+      "team": "Cleveland Cavaliers",
+      "odds": "-555"
+    },
+    {
+      "game": "Oklahoma City Thunder vs. Denver Nuggets",
+      "date": "2025-05-09",
+      "team": "Oklahoma City Thunder",
+      "odds": "-245"
+    },
+    {
+      "game": "Oklahoma City Thunder vs. Denver Nuggets",
+      "date": "2025-05-09",
+      "team": "Denver Nuggets",
+      "odds": "+200"
     }
   ]
 }
