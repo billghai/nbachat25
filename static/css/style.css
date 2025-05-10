@@ -1,133 +1,86 @@
 body {
-    font-family: 'Eurostile', 'Helvetica Neue Condensed', sans-serif;
-    font-size: 14px;
-    line-height: 1.2;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
 }
-
 .container {
-    padding: 1rem;
+    max-width: 1200px;
+    margin: 0 auto;
 }
-
 .header-container {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.75rem;
+    margin-bottom: 20px;
 }
-
-h1 {
-    font-size: 12pt;
-    font-weight: bold;
+.header-container h1 {
     margin: 0;
 }
-
-.current-time {
-    font-size: 0.8rem;
+.header-container p {
     margin: 0;
+    font-size: 0.9rem;
 }
-
-h2 {
-    font-size: 1rem;
-    font-weight: bold;
-    margin: 0;
+.chat-container {
+    border: 2px solid orange;
+    padding: 20px;
+    margin-bottom: 20px;
+    background-color: #fff;
+    height: 12rem;
+    overflow-y: auto;
 }
-
-.text-muted {
-    font-size: 0.8rem;
+#chat-box {
+    margin-bottom: 10px;
 }
-
+#user-input {
+    width: calc(100% - 90px);
+    padding: 10px;
+    margin-right: 10px;
+}
+button {
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+button:hover {
+    background-color: #0056b3;
+}
+.bets-container {
+    border: 2px solid orange;
+    padding: 20px;
+    background-color: #fff;
+}
 .bets-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
+    margin-bottom: 10px;
 }
-
+.bets-header h2 {
+    margin: 0;
+}
 .last-updated {
     font-size: 0.7rem;
     margin: 0;
 }
-
-#chat-container, .betting-container {
-    border: 2px solid #f28c38;
-    border-radius: 10px;
-    padding: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-#chat-messages {
-    height: 12rem;
-    overflow-y: auto;
-    font-size: 0.9rem;
-}
-
-.bets-list {
-    font-size: 0.9rem;
-}
-
 .bet-item {
-    margin-bottom: 0.5rem;
+    margin-bottom: 10px;
 }
-
-.game-info {
-    margin-bottom: 0.25rem;
-    font-weight: 600;
+.bet-item h3 {
+    margin: 0 0 5px 0;
+    font-size: 1.1rem;
 }
-
-.odds-container {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.5rem;
+.bet-item p {
+    margin: 5px 0;
 }
-
-.odds {
-    margin: 0;
-    font-size: 0.85rem;
-}
-
-.place-bet {
-    font-size: 0.85rem;
-    color: #007bff;
-    text-decoration: none;
-}
-
-.place-bet:hover {
-    text-decoration: underline;
-}
-
-.more-bets {
-    font-size: 0.85rem;
-    padding: 0;
-}
-
-@media (min-width: 768px) {
-    body {
-        font-size: 16px;
+@media (max-width: 600px) {
+    .chat-container {
+        height: auto;
+        min-height: 12rem;
     }
-
-    .container {
-        padding: 1.5rem;
-    }
-
-    h1 {
-        font-size: 14pt;
-    }
-
-    h2 {
-        font-size: 1.2rem;
-    }
-
-    .current-time, .last-updated {
-        font-size: 0.85rem;
-    }
-
-    #chat-container, .betting-container {
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-
-    .bets-list, .odds, .place-bet {
-        font-size: 1rem;
+    #user-input {
+        width: calc(100% - 70px);
     }
 }

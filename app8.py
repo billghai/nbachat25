@@ -748,4 +748,4 @@ def get_bets(query, grok_response):
 # Run Flask app locally
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
-    # Bets grouped by teams 0509838pm
+    # Bets grouped by teams
