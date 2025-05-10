@@ -28,9 +28,9 @@ logging.basicConfig(
 )
 logger.debug(f"Logging initialized to file: {LOG_FILE}")
 
-# Hardcode API keys (functional as per memory: May 5, 2025, 8:29 AM PDT)
+# Hardcode API keys
 XAI_API_KEY = 'xai-lY6JXMlP8jvE3CAgqkn2EiRlMZ444mzFQS0JLKIv4p6ZcoGGxW2Mk6EIMs72dLXylw0Kg4MLyOHGDj6c'
-ODDS_API_KEY = '0f33deae4a7f69adbf864b9bbbb395c2'
+ODDS_API_KEY = '7217ef3eabc663d12eb65dce31a2c1c1'
 BETTING_SITE_URL = 'https://www.example.com/bets'
 logger.debug(f"Using XAI_API_KEY: {XAI_API_KEY[:10]}...")
 logger.debug(f"Using ODDS_API_KEY: {ODDS_API_KEY[:10]}...")
@@ -38,7 +38,7 @@ logger.debug(f"Using ODDS_API_KEY: {ODDS_API_KEY[:10]}...")
 # File to store popular bets
 POPULAR_BETS_FILE = 'popular_bets.json'
 
-# Team name mapping for normalizing user queries (e.g., "lakers" -> "Los Angeles Lakers")
+# Team name mapping for normalizing user queries
 TEAM_NAME_MAPPING = {
     "lakers": "Los Angeles Lakers",
     "lalakers": "Los Angeles Lakers",
@@ -129,7 +129,7 @@ KNOWN_SERIES = {
     "Oklahoma City Thunder vs Denver Nuggets 2025-05-05": "Series tied 1-1",
 }
 
-# Jinja2 filter to format dates in templates (e.g., "2025-05-04" -> "May 04, 2025")
+# Jinja2 filter to format dates in templates
 def format_date(date_str):
     if not date_str or date_str == 'N/A':
         return 'N/A'
@@ -142,7 +142,7 @@ def format_date(date_str):
 
 app.jinja_env.filters['format_date'] = format_date
 
-# Normalize team names using fuzzy matching (e.g., "laker" -> "Los Angeles Lakers")
+# Normalize team names using fuzzy matching
 def normalize_team_name(query):
     if not query or not any(c.isalpha() for c in query):
         safe_query = query.encode('ascii', 'ignore').decode('ascii')
@@ -160,7 +160,7 @@ def normalize_team_name(query):
     logger.debug(f"No team match for query: {query}")
     return None
 
-# Parse date from query (e.g., "next Friday", "weekend")
+# Parse date from query
 def parse_query_date(query):
     pdt = pytz.timezone('US/Pacific')
     current_date = datetime.now(pdt)
@@ -173,7 +173,6 @@ def parse_query_date(query):
         next_friday = current_date + timedelta(days=days_until_friday)
         return next_friday.strftime("%Y-%m-%d")
     elif "weekend" in query_lower:
-        # Return Saturday of the next weekend
         days_to_saturday = (5 - current_date.weekday()) % 7
         if days_to_saturday == 0:
             days_to_saturday = 7
@@ -183,10 +182,9 @@ def parse_query_date(query):
         return current_date.strftime("%Y-%m-%d")
     return current_date.strftime("%Y-%m-%d")  # Default to current date
 
-# Fetch betting odds from Odds API for a specific date, deduplicating by median odds
+# Fetch betting odds from Odds API, deduplicating by game ID
 def fetch_betting_odds(date_str):
     try:
-        # Use PDT timezone for game dates
         pdt = pytz.timezone('US/Pacific')
         date = datetime.strptime(date_str, '%Y-%m-%d').replace(tzinfo=pdt)
         timestamp = int(date.timestamp())
@@ -203,19 +201,27 @@ def fetch_betting_odds(date_str):
         response.raise_for_status()
         games = response.json()
         
-        # Collect odds by game and team
+        # Collect odds by unique game ID
         bets_dict = {}
+        seen_game_ids = set()
         for game in games:
+            game_id = game['id']
+            if game_id in seen_game_ids:
+                logger.debug(f"Skipping duplicate game ID: {game_id}")
+                continue
+            seen_game_ids.add(game_id)
+            
             home_team = game['home_team']
             away_team = game['away_team']
             commence_time = game.get('commence_time', '')[:10]
-            if commence_time != date_str:  # Strict date match
+            if commence_time != date_str:
                 logger.debug(f"Skipping game with commence_time {commence_time} != {date_str}")
                 continue
-            game_key = f"{home_team} vs. {away_team}_{commence_time}"
-            if game_key not in bets_dict:
-                bets_dict[game_key] = {}
+            teams = sorted([home_team, away_team])
+            game_key = f"{teams[0]} vs. {teams[1]}_{commence_time}"
+            bets_dict[game_key] = {}
             
+            # Collect odds from all bookmakers
             for bookmaker in game.get('bookmakers', []):
                 for market in bookmaker.get('markets', []):
                     if market['key'] == 'h2h':
@@ -226,20 +232,16 @@ def fetch_betting_odds(date_str):
                                 bets_dict[game_key][team] = []
                             bets_dict[game_key][team].append(price)
         
-        # Deduplicate by selecting median odds per team per game
+        # Format bets with median odds
         bets = []
-        seen_games = set()
         for game_key, teams in bets_dict.items():
             game_name = game_key.rsplit('_', 1)[0]
-            if game_name in seen_games:
-                continue
-            seen_games.add(game_name)
+            commence_time = game_key.rsplit('_', 1)[1]
             teams_list = game_name.split(' vs. ')
             if len(teams_list) != 2:
                 logger.debug(f"Skipping invalid game name: {game_name}")
                 continue
             home_team, away_team = teams_list
-            commence_time = game_key.rsplit('_', 1)[1]
             
             for team in teams:
                 prices = bets_dict[game_key][team]
@@ -267,6 +269,7 @@ def fetch_betting_odds(date_str):
 def update_popular_bets():
     pdt = pytz.timezone('US/Pacific')
     current_date = datetime.now(pdt).strftime("%Y-%m-%d")
+    current_timestamp = datetime.now(pdt).strftime("%Y-%m-%d %H:%M:%S %Z")
     all_odds = fetch_betting_odds(current_date)
     
     if not all_odds:
@@ -276,45 +279,45 @@ def update_popular_bets():
                 'game': 'Indiana Pacers vs. Cleveland Cavaliers',
                 'date': '2025-05-09',
                 'team': 'Indiana Pacers',
-                'odds': '+260'
+                'odds': '+355'
             },
             {
                 'game': 'Indiana Pacers vs. Cleveland Cavaliers',
                 'date': '2025-05-09',
                 'team': 'Cleveland Cavaliers',
-                'odds': '-320'
+                'odds': '-555'
             },
             {
                 'game': 'Oklahoma City Thunder vs. Denver Nuggets',
                 'date': '2025-05-09',
                 'team': 'Oklahoma City Thunder',
-                'odds': '+180'
+                'odds': '-245'
             },
             {
                 'game': 'Oklahoma City Thunder vs. Denver Nuggets',
                 'date': '2025-05-09',
                 'team': 'Denver Nuggets',
-                'odds': '-220'
+                'odds': '+200'
             }
         ]
     
-    # Deduplicate and limit to 4 unique bets
+    # Deduplicate bets
     unique_bets = {}
     for bet in all_odds:
-        game_key = f"{bet['game']}_{bet['team']}"
+        game_key = f"{bet['game']}_{bet['team']}_{bet['date']}"
         if game_key not in unique_bets:
             unique_bets[game_key] = bet
-    popular_odds = list(unique_bets.values())[:4]
+    popular_odds = list(unique_bets.values())
     
     # Save to JSON file
     popular_bets = {
-        'last_updated': datetime.now(pdt).strftime("%Y-%m-%d %H:%M:%S %Z"),
+        'last_updated': current_timestamp,
         'bets': popular_odds
     }
     try:
         with open(POPULAR_BETS_FILE, 'w') as f:
             json.dump(popular_bets, f, indent=2)
-        logger.debug(f"Updated popular_bets.json with {len(popular_odds)} bets: {json.dumps(popular_bets, indent=2)}")
+        logger.info(f"Updated popular_bets.json with {len(popular_odds)} bets at {current_timestamp}")
     except Exception as e:
         logger.error(f"Failed to save popular bets to {POPULAR_BETS_FILE}: {str(e)}")
     
@@ -357,23 +360,21 @@ def cron_update_popular_bets():
         logger.error(f"Error updating popular bets in cron job: {str(e)}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# Route for rendering the main page (index.html)
+# Route for rendering the main page
 @app.route("/")
 def index():
     try:
-        # Use PDT for current time
         pdt = pytz.timezone('US/Pacific')
         current_datetime = datetime.now(pdt).strftime("%B %d, %Y, %I:%M %p %Z")
         current_date = datetime.now(pdt).strftime("%Y-%m-%d")
         logger.debug(f"Rendering index with datetime: {current_datetime}, current_date: {current_date}")
 
-        # Load popular bets and last update time
         popular_bets, last_bets_update = load_popular_bets()
         popular_bets_formatted = []
         seen_games = set()
         for bet in popular_bets:
             try:
-                game_key = f"{bet['game']}_{bet['team']}"
+                game_key = f"{bet['game']}_{bet['team']}_{bet['date']}"
                 if game_key not in seen_games:
                     seen_games.add(game_key)
                     bet_info = {
@@ -398,7 +399,7 @@ def index():
         logger.error(f"Error rendering index: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
-# Route for handling chat queries (GET for instructions, POST for processing)
+# Route for handling chat queries
 @app.route("/chat", methods=["GET", "POST"])
 def chat():
     logger.debug(f"Handling request to /chat with method: {request.method}")
@@ -448,23 +449,19 @@ def chat():
 
 # Query XAI API for detailed NBA data
 def deep_search_query(query):
-    # API endpoint and headers
     XAI_API_URL = "https://api.x.ai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {XAI_API_KEY}",
         "Content-Type": "application/json"
     }
-    # Current date in PDT for context
     pdt = pytz.timezone('US/Pacific')
     current_date = datetime.now(pdt)
     current_date_str = current_date.strftime("%Y-%m-%d")
-    # Calculate next Friday
     days_until_friday = (4 - current_date.weekday()) % 7
     if days_until_friday == 0:
         days_until_friday = 7
     next_friday = current_date + timedelta(days=days_until_friday)
     next_friday_str = next_friday.strftime("%Y-%m-%d")
-    # System prompt with playoff context and LeBron's high score
     prompt = (
         f"You’re an NBA stats expert. Provide concise, data-driven responses using verified 2024-25 season data from NBA.com or ESPN. "
         f"Current date: {current_date_str}. For past week queries, check games from {current_date_str} back 7 days; exclude future dates. "
@@ -487,7 +484,6 @@ def deep_search_query(query):
         f"May 11: Pacers vs. Cavaliers (Game 4, 8:00 PM PDT, TNT), Thunder vs. Nuggets (Game 4, 3:30 PM PDT, ABC). "
         f"Exclude games from other dates in the response unless explicitly requested. Max 600 chars."
     )
-    # API payload with prompt and query
     payload = {
         "model": "grok-beta",
         "messages": [
@@ -497,7 +493,6 @@ def deep_search_query(query):
         "max_tokens": 600,
         "temperature": 0.7
     }
-    # Retry API call up to 3 times
     for attempt in range(3):
         try:
             response = requests.post(XAI_API_URL, json=payload, headers=headers, timeout=12)
@@ -513,19 +508,17 @@ def deep_search_query(query):
                 time.sleep(3)
             else:
                 logger.error(f"DeepSearch failed after 3 attempts: {str(e)}")
-                # Fallback for LeBron high score
                 if "lebron" in query.lower() and any(phrase in query.lower() for phrase in ["highest score", "high score", "most points"]):
                     return "LeBron James' highest NBA game score is 61 points, achieved on March 3, 2014, against the Charlotte Bobcats.", False
                 return "No data available", False
     return "No data available", False
 
-# Process NBA queries using known series or DeepSearch
+# Process NBA queries
 def search_nba_data(query, user_teams, query_timestamp):
     logger.debug(f"user_teams: {user_teams}")
     current_date = datetime.now(pytz.timezone('US/Pacific')).strftime("%Y-%m-%d")
     current_dt = datetime.strptime(current_date, "%Y-%m-%d")
 
-    # Handle historical queries (e.g., NBA Finals winners)
     year_match = re.search(r'\b(19|20)\d{2}\b', query)
     if year_match and any(word in query.lower() for word in ["won", "champion", "finals"]):
         year = int(year_match.group())
@@ -534,10 +527,8 @@ def search_nba_data(query, user_teams, query_timestamp):
             logger.debug(f"Historical query for {season}: DeepSearch")
             return deep_search_query(f"Who won the NBA Finals in the {season} season?")
 
-    # Check known series for team-specific queries
     if user_teams and any(word in query.lower() for word in ["last", "next", "today", "tonight"]):
         team = user_teams[0]
-        # Prioritize latest series key for specific teams
         series_keys = sorted(
             [key for key in KNOWN_SERIES.keys() if team in key],
             key=lambda x: datetime.strptime(x.split()[-1], "%Y-%m-%d"),
@@ -606,7 +597,7 @@ def search_nba_data(query, user_teams, query_timestamp):
                     response = f"The Orlando Magic were eliminated by the Boston Celtics on 2025-05-01, series ended. Series: {KNOWN_SERIES[series_key]}."
                     return response, False
         if "last" in query.lower() and series_keys:
-            series_key = series_keys[0]  # Use the most recent series key
+            series_key = series_keys[0]
             status = KNOWN_SERIES.get(series_key, "No data available")
             logger.debug(f"Using known series for {team}: {series_key}")
             if team == "Miami Heat":
@@ -665,11 +656,9 @@ def search_nba_data(query, user_teams, query_timestamp):
                     response = f"Orlando Magic lost to Boston Celtics on 2025-05-01, score 89-120. Series: {KNOWN_SERIES[series_key]}."
                     return response, False
 
-    # All other queries route to DeepSearch
     logger.debug(f"Routing query to DeepSearch: {query}")
     grok_response, is_grok_search = deep_search_query(query)
 
-    # Validate DeepSearch response
     if user_teams:
         team = user_teams[0]
         if team in ["Los Angeles Lakers", "Miami Heat", "LA Clippers", "New York Knicks", "Boston Celtics", "Denver Nuggets", "Golden State Warriors", "Minnesota Timberwolves", "Indiana Pacers", "Cleveland Cavaliers", "Orlando Magic"]:
@@ -711,7 +700,7 @@ def search_nba_data(query, user_teams, query_timestamp):
 
     return grok_response, is_grok_search
 
-# Get betting odds for specific teams or queried dates
+# Get betting odds for specific teams or dates
 def get_game_odds(query):
     normalized_teams = [normalize_team_name(query) for query in query.split() if normalize_team_name(query)]
     query_date = parse_query_date(query)
@@ -755,6 +744,6 @@ def get_bets(query, grok_response):
     logger.debug(f"Bets generated: {json.dumps(bets, indent=2)}")
     return bets
 
-# Run Flask app locally for debugging
+# Run Flask app locally
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
