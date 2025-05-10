@@ -371,22 +371,23 @@ def index():
 
         popular_bets, last_bets_update = load_popular_bets()
         popular_bets_formatted = []
-        seen_games = set()
+        game_groups = {}
         for bet in popular_bets:
             try:
-                game_key = f"{bet['game']}_{bet['team']}_{bet['date']}"
-                if game_key not in seen_games:
-                    seen_games.add(game_key)
-                    bet_info = {
+                game_key = f"{bet['game']}_{bet['date']}"
+                if game_key not in game_groups:
+                    game_groups[game_key] = {
                         "game": bet['game'],
                         "date": bet.get('date', 'N/A'),
-                        "moneyline": {bet['team']: bet['odds']},
+                        "moneyline": {},
                         "teams": bet['game'].split(' vs. ')
                     }
-                    popular_bets_formatted.append(bet_info)
+                game_groups[game_key]["moneyline"][bet['team']] = bet['odds']
             except Exception as e:
                 logger.debug(f"Skipping invalid popular bet data: {str(e)}, bet: {bet}")
                 continue
+
+        popular_bets_formatted = list(game_groups.values())
 
         return render_template(
             "index.html",
@@ -747,3 +748,4 @@ def get_bets(query, grok_response):
 # Run Flask app locally
 if __name__ == "__main__":
     app.run(host='127.0.0.1', port=5000, debug=True)
+    # Bets grouped by teams 0509838pm
