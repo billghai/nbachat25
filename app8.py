@@ -373,13 +373,15 @@ def index():
         popular_bets, last_bets_update = load_popular_bets()
         popular_bets_formatted = []
         seen_games = set()
+        seen_teams = set()
         
         # Deduplicate bets and ensure both teams
         for bet in popular_bets:
             try:
                 game_key = f"{bet['game']}_{bet['team']}_{bet['date']}"
-                if game_key not in seen_games:
+                if game_key not in seen_games and bet['team'] not in seen_teams:
                     seen_games.add(game_key)
+                    seen_teams.add(bet['team'])
                     bet_info = {
                         "game": bet['game'],
                         "date": bet.get('date', 'N/A'),
@@ -390,8 +392,8 @@ def index():
             except Exception as e:
                 logger.debug(f"Skipping invalid bet data: {str(e)}, bet: {bet}")
                 continue
-
-        # Ensure both teams for each game
+        
+        # Limit to two bets (one per team)
         final_bets = []
         game_groups = {}
         for bet in popular_bets_formatted:
@@ -401,10 +403,10 @@ def index():
             game_groups[game_date].append(bet)
         
         for game_date, bets in game_groups.items():
-            if len(bets) >= 2:  # Ensure both teams
+            if len(bets) >= 2:
                 final_bets.extend(bets[:2])  # Take first two bets (one per team)
             else:
-                final_bets.append(bets[0])  # Fallback to single bet
+                final_bets.append(bets[0])
 
         return render_template(
             "index.html",

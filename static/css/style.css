@@ -50,7 +50,7 @@ body {
         flex-wrap: wrap;
     }
     #user-input {
-        width: 65% !important;
+        max-width: 65% !important;
     }
     .btn-sm {
         font-size: 0.8rem;

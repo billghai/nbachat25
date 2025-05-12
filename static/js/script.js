@@ -3,12 +3,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const userInput = document.getElementById('user-input');
     const chatMessages = document.getElementById('chat-messages');
 
+    if (!chatForm || !userInput || !chatMessages) {
+        console.error('Form elements not found');
+        return;
+    }
+
     chatForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const message = userInput.value.trim();
         if (!message) return;
 
-        // Add user message
         chatMessages.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
         userInput.value = '';
 
@@ -18,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message })
             });
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const data = await response.json();
             chatMessages.innerHTML += `<p><strong>Grok:</strong> ${data.grok}</p>`;
             chatMessages.scrollTop = chatMessages.scrollHeight;
