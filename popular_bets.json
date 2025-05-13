@@ -1,29 +1,17 @@
 {
-  "last_updated": "2025-05-10 11:58:20 PDT",
+  "last_updated": "2025-05-12 18:53:16 PDT",
   "bets": [
     {
-      "game": "New York Knicks vs. Boston Celtics",
-      "date": "2025-05-10",
-      "team": "New York Knicks",
-      "odds": "+320"
+      "game": "Boston Celtics vs. New York Knicks",
+      "date": "2025-05-12",
+      "team": "Boston Celtics",
+      "odds": "+204"
     },
     {
-      "game": "New York Knicks vs. Boston Celtics",
-      "date": "2025-05-10",
+      "game": "Boston Celtics vs. New York Knicks",
+      "date": "2025-05-12",
       "team": "New York Knicks",
-      "odds": "+319"
-    },
-    {
-      "game": "New York Knicks vs. Boston Celtics",
-      "date": "2025-05-10",
-      "team": "New York Knicks",
-      "odds": "+315"
-    },
-    {
-      "game": "New York Knicks vs. Boston Celtics",
-      "date": "2025-05-10",
-      "team": "New York Knicks",
-      "odds": "+315"
+      "odds": "+172"
     }
   ]
 }

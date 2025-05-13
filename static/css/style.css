@@ -18,6 +18,10 @@ body {
 .betting-container h4 {
     color: #333;
 }
+.team-name {
+    color: green;
+    font-weight: bold;
+}
 .btn-primary {
     background-color: #007bff;
     border-color: #007bff;

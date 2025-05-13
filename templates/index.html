@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SlamDunkChat 🏀</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=11">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
 </head>
 <body class="bg-light">
     <div class="container py-2">
@@ -30,7 +30,7 @@
             {% for bet in popular_bets %}
                 <div class="card p-2 mb-1">
                     <p class="fw-semibold mb-1 fs-6">{{ bet.game }}, {{ bet.date | format_date }}</p>
-                    <p class="mb-0 fs-6">{{ bet.team }}: {{ bet.odds }}</p>
+                    <p class="mb-0 fs-6"><span class="team-name">{{ bet.team }}</span>: {{ bet.odds }}</p>
                     {% if loop.index == 2 %}
                         <a href="{{ betting_site_url }}" target="_blank" class="btn btn-link p-0 fs-6">Place Bet</a>
                     {% endif %}
@@ -39,6 +39,6 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}?v=11"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}?v=12"></script>
 </body>
 </html>
